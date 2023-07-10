@@ -3,6 +3,7 @@
   createWebHistory,
 } from "vue-router";
 import isAuthenticated from "@/utils/verifyAuth";
+import store from "@/store";
 
 const routes = [
   {
@@ -34,6 +35,7 @@ const router = createRouter({
 router.beforeEach(async (to, from, next) => {
   if (to.matched.some((record) => record.meta.requiresAuth)) {
     const authenticated = await isAuthenticated();
+    store.commit('setAuthentication', { auth: authenticated });
     if (authenticated) {
       next();
     } else {
@@ -45,4 +47,3 @@ router.beforeEach(async (to, from, next) => {
 });
 
 export default router;
- 

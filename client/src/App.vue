@@ -1,19 +1,28 @@
 <template>
-  <sidebar></sidebar>
-  <main class="main-container">
-    <div class="container"></div>
+  <sidebar v-if="$store.state.isAuthenticated"></sidebar>
+  <main v-if="$store.state.isAuthenticated" class="centering-container">
+    <div class="main-container">
+      <navbar></navbar>
+    </div>
   </main>
   <router-view />
 </template>
 
 <script>
 import sidebar from "@/components/sidebar";
+import navbar from "@/components/navbar";
 
 export default {
   name: "App",
   components: {
     sidebar,
+    navbar,
   },
+  data() {
+    return {};
+  },
+  methods: {},
+  mounted() {},
 };
 </script>
 
@@ -42,18 +51,18 @@ export default {
   flex-direction: row;
 }
 
-.main-container {
+.centering-container {
   background-color: transparent;
   display: grid;
   place-items: center;
-  width: 80%;
+  width: 83%;
   height: 100%;
 }
 
-.container {
+.main-container {
   background-color: #f6f9fb;
-  width: 98%;
-  height: 97%;
+  width: calc(100% - 20px);
+  height: calc(100% - 20px);
   border-radius: 10px;
 }
 </style>

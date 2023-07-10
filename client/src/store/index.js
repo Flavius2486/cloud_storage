@@ -2,14 +2,12 @@ import { createStore } from "vuex";
 
 export default createStore({
   state: {
-    email: null,
-    token: null,
+    isAuthenticated: false,
   },
   getters: {},
   mutations: {
-    setSession(state, data) {
-      state.email = data.email;
-      state.token = data.token;
+    setAuthentication(state, data) {
+      state.isAuthenticated = data.auth;
     },
   },
   actions: {},
