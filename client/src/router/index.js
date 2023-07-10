@@ -25,6 +25,38 @@ const routes = [
       requiresAuth: true,
     },
   },
+  {
+    path: "/recents",
+    name: "recents",
+    component: () => import("../views/RecentsView.vue"),
+    meta: {
+      requiresAuth: true,
+    },
+  },
+  {
+    path: "/starred",
+    name: "starred",
+    component: () => import("../views/StarredView.vue"),
+    meta: {
+      requiresAuth: true,
+    },
+  },
+  {
+    path: "/public",
+    name: "public",
+    component: () => import("../views/PublicView.vue"),
+    meta: {
+      requiresAuth: true,
+    },
+  },
+  {
+    path: "/deleted",
+    name: "deleted",
+    component: () => import("../views/DeletedView.vue"),
+    meta: {
+      requiresAuth: true,
+    },
+  },
 ];
 
 const router = createRouter({
@@ -33,14 +65,16 @@ const router = createRouter({
 });
 
 router.beforeEach(async (to, from, next) => {
+  const authenticated = await isAuthenticated();
   if (to.matched.some((record) => record.meta.requiresAuth)) {
-    const authenticated = await isAuthenticated();
-    store.commit('setAuthentication', { auth: authenticated });
+    store.commit("setAuthentication", { auth: authenticated });
     if (authenticated) {
       next();
     } else {
       next("/login");
     }
+  } else if (to.path === "/login" && authenticated) {
+    next(from.path);
   } else {
     next();
   }

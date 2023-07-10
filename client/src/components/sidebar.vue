@@ -46,30 +46,35 @@ export default {
           color: "#2ab7e8",
           text: "Dashboard",
           active: true,
+          page: "dashboard",
         },
         {
           icon: ["far", "clock"],
           color: "#A4ADD3",
           text: "Recents",
           active: false,
+          page: "recents",
         },
         {
           icon: ["far", "star"],
           color: "yellow",
           text: "Starred",
           active: false,
+          page: "starred",
         },
         {
           icon: ["far", "user"],
           color: "#5c9f19",
           text: "Public",
           active: false,
+          page: "public",
         },
         {
           icon: ["far", "trash-can"],
-          color: "red",
-          text: "Deleted",
+          color: "#d31c1c",
+          text: "Deleted Files",
           active: false,
+          page: "deleted",
         },
       ],
       usedStorage: { value: 25, unit: "GB" },
@@ -82,11 +87,11 @@ export default {
         button.active = false;
       });
       this.sidebarBtns[index].active = true;
+      this.$router.replace({ name: this.sidebarBtns[index].page });
     },
     progressBar() {
       const usedStorage =
         (this.usedStorage.value / this.freeStorage.value) * 100;
-      console.log(usedStorage);
       document.querySelector(".progress-bar span").style.width =
         usedStorage + "%";
     },
@@ -116,11 +121,8 @@ export default {
 .divider {
   height: 0.5px;
   width: calc(100% - 10px);
-  background-color: #9da6f8;
+  background-color: #577082;
   margin: 20px 10px 0 10px;
-}
-
-.storage-informations {
 }
 
 .storage-title {

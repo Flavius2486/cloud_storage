@@ -1,11 +1,12 @@
 <template>
+  <router-view v-if="!$store.state.isAuthenticated" />
   <sidebar v-if="$store.state.isAuthenticated"></sidebar>
   <main v-if="$store.state.isAuthenticated" class="centering-container">
     <div class="main-container">
       <navbar></navbar>
+      <router-view />
     </div>
   </main>
-  <router-view />
 </template>
 
 <script>

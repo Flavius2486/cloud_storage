@@ -118,9 +118,6 @@ export default {
       document.querySelector(".remember-me-box input").checked = this.remberMe;
     },
   },
-  // mounted() {
-  //   this.verifyIsAuthenticated();
-  // },
 };
 </script>
 
