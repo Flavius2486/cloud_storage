@@ -12,16 +12,43 @@
       <input type="search" placeholder="Search" />
     </div>
     <div class="navbar__right-side--group">
-      <div class="settings-btn">
-        <fa :icon="['fas', 'gear']" />
+      <div class="settings-btn dropdown-settings" @click="showDropdown($event)">
+        <fa :icon="['fas', 'gear']" class="dropdown-settings" />
       </div>
+      <Dropdown
+        :customClass="'dropdown-settings'"
+        :style="{ marginTop: '0px', marginLeft: '-120px' }"
+      >
+        <DropdownOption :icon="['fas', 'arrow-right-from-bracket']"
+          >Logout</DropdownOption
+        >
+      </Dropdown>
     </div>
   </div>
 </template>
 
 <script>
+import Dropdown from "@/components/dropdown/dropdown.vue";
+import DropdownOption from "@/components/dropdown/dropdownOption";
+
 export default {
   name: "nav-bar",
+  components: {
+    Dropdown,
+    DropdownOption,
+  },
+  methods: {
+    showDropdown(event) {
+      const dropdowns = document.querySelectorAll(".dropdown");
+      dropdowns.forEach((dropdown) => {
+        dropdown.classList.add("hidden");
+        if (event.target.classList.contains(dropdown.classList[0]))
+          setTimeout(() => {
+            dropdown.classList.remove("hidden");
+          }, 100);
+      });
+    },
+  },
 };
 </script>
 
@@ -38,6 +65,8 @@ export default {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  z-index: 99999999999;
+  position: sticky;
 }
 
 .navbar__left-side--group {
@@ -96,5 +125,8 @@ export default {
 .settings-btn {
   font-size: 19px;
   color: #363745;
+  width: 20px;
+  height: 25px;
+  z-index: 99999999;
 }
 </style>

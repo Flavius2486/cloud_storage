@@ -31,7 +31,7 @@
 </template>
 
 <script>
-import SidebarButton from "@/components/sidebarButton.vue";
+import SidebarButton from "@/components/sidebar/sidebarButton.vue";
 
 export default {
   name: "side-bar",
@@ -45,7 +45,7 @@ export default {
           icon: ["fas", "qrcode"],
           color: "#2ab7e8",
           text: "Dashboard",
-          active: true,
+          active: false,
           page: "dashboard",
         },
         {
@@ -98,6 +98,16 @@ export default {
   },
   mounted() {
     this.progressBar();
+  },
+  watch: {
+    $route(to) {
+      this.sidebarBtns.forEach((button) => {
+        button.active = false;
+        if (button.page === to.name) {
+          button.active = true;
+        }
+      });
+    },
   },
 };
 </script>

@@ -10,7 +10,7 @@
 </template>
 
 <script>
-import sidebar from "@/components/sidebar";
+import sidebar from "@/components/sidebar/sidebar";
 import navbar from "@/components/navbar";
 
 export default {
@@ -22,8 +22,21 @@ export default {
   data() {
     return {};
   },
-  methods: {},
+  methods: {
+    hideDropdowns() {
+      const dropdowns = document.querySelectorAll(".dropdown");
+      dropdowns.forEach((dropdown) => {
+        dropdown.classList.add("hidden");
+      });
+    },
+  },
   mounted() {},
+  created: function () {
+    window.addEventListener("click", this.hideDropdowns);
+  },
+  unmounted: function () {
+    window.removeEventListener("click", this.hideDropdowns);
+  },
 };
 </script>
 
@@ -50,6 +63,7 @@ export default {
   width: 100%;
   display: flex;
   flex-direction: row;
+  overflow: hidden;
 }
 
 .centering-container {
