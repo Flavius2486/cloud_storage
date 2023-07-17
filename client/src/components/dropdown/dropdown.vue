@@ -41,11 +41,13 @@ export default {
   user-select: none;
 }
 
+.dropdown-option-for > :first-child,
 .dropdown > :first-child {
   border-top-left-radius: 10px;
   border-top-right-radius: 10px;
 }
 
+.dropdown-option-for > :last-child,
 .dropdown > :last-child {
   border-bottom-left-radius: 10px;
   border-bottom-right-radius: 10px;

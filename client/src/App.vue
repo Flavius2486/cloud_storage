@@ -2,7 +2,7 @@
   <router-view v-if="!$store.state.isAuthenticated" />
   <sidebar v-if="$store.state.isAuthenticated"></sidebar>
   <main v-if="$store.state.isAuthenticated" class="centering-container">
-    <div class="main-container">
+    <div class="main-container" @scroll="hideDropdowns">
       <navbar></navbar>
       <router-view />
     </div>
@@ -44,6 +44,7 @@ export default {
 * {
   margin: 0;
   padding: 0;
+  box-sizing: border-box;
 }
 
 #app {
@@ -79,5 +80,22 @@ export default {
   width: calc(100% - 20px);
   height: calc(100% - 20px);
   border-radius: 10px;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+/* Hide the scrollbar when not hovered */
+::-webkit-scrollbar {
+  width: 6px;
+  background-color: #f1f1f1;
+  border-radius: 20px;
+}
+
+::-webkit-scrollbar-thumb {
+  background-color: #c6c5c5; /* Change to desired thumb color */
+  border-radius: 5px; /* Add rounded corners to the thumb */
+}
+::-webkit-scrollbar-thumb:hover {
+  background-color: #a9a9a9;
 }
 </style>

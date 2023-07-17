@@ -65,8 +65,9 @@ export default {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  z-index: 99999999999;
+  top: 0;
   position: sticky;
+  z-index: 3;
 }
 
 .navbar__left-side--group {
