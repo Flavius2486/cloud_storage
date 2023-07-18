@@ -1,34 +1,28 @@
 <template>
   <div
-    :class="customClass"
-    class="dropdown hidden"
-    :style="{
-      marginTop: style.marginTop,
-      marginLeft: style.marginLeft,
-    }"
-  >
-    <slot></slot>
-  </div>
+    class="file-menu dropdown hidden"
+    :style="{ top: style.top, left: style.left }"
+  ></div>
 </template>
 
 <script>
 export default {
-  name: "dropdown-menu",
   props: {
     style: {
       type: Object,
-      required: false,
-    },
-    customClass: {
-      type: String,
       required: true,
+    },
+  },
+  methods: {
+    showFileMenu() {
+      document.querySelector(".file-menu").classList.remove("hidden");
     },
   },
 };
 </script>
 
 <style>
-.dropdown {
+.file-menu {
   min-width: 160px;
   position: absolute;
   z-index: 99999;
@@ -41,14 +35,12 @@ export default {
   user-select: none;
 }
 
-.dropdown-option-for > :first-child,
-.dropdown > :first-child {
+.file-menu > :first-child {
   border-top-left-radius: 10px;
   border-top-right-radius: 10px;
 }
 
-.dropdown-option-for > :last-child,
-.dropdown > :last-child {
+.file-menu > :last-child {
   border-bottom-left-radius: 10px;
   border-bottom-right-radius: 10px;
 }

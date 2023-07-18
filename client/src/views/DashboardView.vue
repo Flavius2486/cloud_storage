@@ -60,7 +60,7 @@
 <script>
 import Dropdown from "@/components/dropdown/dropdown.vue";
 import DropdownOption from "@/components/dropdown/dropdownOption";
-import AsetsWrapper from "@/components/asets_wrapper/asetsWrapper";
+import AsetsWrapper from "@/components/asetsWrapper";
 
 export default {
   components: {

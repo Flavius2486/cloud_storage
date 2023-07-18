@@ -54,7 +54,9 @@
         </div>
       </div>
     </header>
-    <TableFormat v-if="tableFormat"></TableFormat>
+    <div v-if="tableFormat">
+      <h1>Table</h1>
+    </div>
     <table v-else class="asets-table--list">
       <tr class="asets-table--head--list">
         <th class="asets-name-column--list">
@@ -104,15 +106,27 @@
             <p>Last accesed</p>
           </div>
         </th>
-        <th class="select-asets-btn--list">
-          <div>
-            <fa :icon="['fas', 'check-to-slot']" />
+        <th>
+          <div class="select-asets-btn--list" @click="asetsSelectionToggle()">
+            <div>
+              <fa :icon="['fas', 'check-to-slot']" />
+            </div>
           </div>
         </th>
       </tr>
-      <tr class="aset--list" v-for="(aset, index) in data" :key="index">
+      <tr
+        class="aset--list"
+        v-for="(aset, index) in data"
+        :key="index"
+        @mouseenter="showAsetCheckbox(index)"
+        @mouseleave="hideAsetCheckbox(index)"
+        @click.stop="selectAset(index)"
+      >
         <th>
           <div class="aset-name-column--list">
+            <div class="select-aset-btn--list hidden">
+              <input type="checkbox" @click.stop @click.prevent />
+            </div>
             <div class="aset-image--list">
               <img src="@/assets/logo.png" />
             </div>
@@ -127,29 +141,52 @@
         </th>
         <th>
           <div class="aset-options-btn-container--list">
-            <div class="aset-options-btn--list aset-dropdown--list">
-              <fa :icon="['fas', 'ellipsis']" />
+            <div
+              class="aset-options-btn--list aset-dropdown--list asset-options--dropdown"
+              @click="showDropdown($event, index)"
+            >
+              <fa :icon="['fas', 'ellipsis']" class="asset-options--dropdown" />
             </div>
           </div>
         </th>
       </tr>
     </table>
+    <Dropdown
+      :customClass="'asset-options--dropdown'"
+      :style="{
+        marginTop: '0px',
+        marginLeft: '0px',
+      }"
+    >
+      <div
+        v-for="(option, index) in asetsOptions"
+        :key="index"
+        class="dropdown-option-for"
+      >
+        <DropdownOption
+          :style="{ fontSize: '13px' }"
+          :icon="option.icon"
+          v-if="selectedAssetType.text !== option.text"
+        >
+          {{ option.text }}
+        </DropdownOption>
+      </div>
+    </Dropdown>
   </main>
 </template>
 
 <script>
 import Dropdown from "@/components/dropdown/dropdown.vue";
 import DropdownOption from "@/components/dropdown/dropdownOption";
-import TableFormat from "./asetsWrapperTableFormat.vue";
 
 export default {
   components: {
     Dropdown,
     DropdownOption,
-    TableFormat,
   },
   data() {
     return {
+      asetsSelection: false,
       tableFormat: false,
       selectedAssetType: {
         icon: ["fas", "briefcase"],
@@ -187,9 +224,51 @@ export default {
       ],
       prevSortedColumn: -1,
       filterDataBy: 0,
+      asetsOptions: [
+        {
+          text: "Open",
+          icon: ["fas", "folder-open"],
+          index: 0,
+        },
+        {
+          text: "Rename",
+          icon: ["fas", "pencil"],
+          index: 1,
+        },
+        {
+          text: "Move",
+          icon: ["fas", "arrow-right-to-bracket"],
+          index: 2,
+        },
+        {
+          text: "Add to starred",
+          icon: ["far", "star"],
+          index: 3,
+        },
+        {
+          text: "Remove from starred",
+          icon: ["fas", "star"],
+          index: 4,
+        },
+        {
+          text: "Detalies",
+          icon: ["fas", "circle-info"],
+          index: 5,
+        },
+        {
+          text: "Download",
+          icon: ["fas", "download"],
+          index: 6,
+        },
+        {
+          text: "Delete",
+          icon: ["far", "trash-can"],
+          index: 7,
+        },
+      ],
       data: [
         {
-          name: ".pngimagFbgimaagFbgimagFbgimagFbgimagFbgimagFbreak.png",
+          name: ".pnbreak.png",
           size: "20MB",
           type: "file",
         },
@@ -238,25 +317,54 @@ export default {
     };
   },
   methods: {
-    showDropdown(event) {
+    showDropdown(event, index) {
+      const asets = document.querySelectorAll(".aset--list");
       const dropdowns = document.querySelectorAll(".dropdown");
+
+      this.cancelAsetsSelection();
+
+      asets.forEach((aset) => {
+        aset.style.backgroundColor = "#f7f8fb";
+      });
+
       dropdowns.forEach((dropdown) => {
         dropdown.classList.add("hidden");
         //verify if the clicked element has a match for one of the dropdowns class
-        if (event.target.classList.contains(dropdown.classList[0]))
+        if (event.target.classList.contains(dropdown.classList[0])) {
           setTimeout(() => {
             dropdown.classList.remove("hidden");
+            //verify if is the asets dropdown
+            if (dropdown.classList[0] === "asset-options--dropdown") {
+              //set the top distance of the dropdown to the top distance of the cursor position
+              dropdown.style.top = event.clientY + "px";
+              //set the left distance of the dropdown to the left distance of the cursor position
+              dropdown.style.left =
+                event.clientX - dropdown.clientWidth - 5 + "px";
+              //get the height of the dropdown that is lower than the screen
+              let exeededHeight =
+                event.clientY + dropdown.clientHeight - window.innerHeight;
+              //if the entire dropdown is not visible on the window
+              if (exeededHeight > 0) {
+                //substract the height from the top distance
+                dropdown.style.top = event.clientY - exeededHeight - 10 + "px";
+              }
+              //marg the aset that has the options dropdown open
+              asets[index].style.backgroundColor = "#E9ECF8";
+            }
           }, 100);
+        }
       });
     },
 
     setSelectedAssetType(index) {
       this.selectedAssetType = this.assetsTypes[index];
       if (this.selectedAssetType.type !== "all") {
+        //return only the asets that has the specified type
         this.data = this.dataCopy.filter((file) => {
           if (this.assetsTypes[index].type === file.type) return true;
         });
       } else {
+        //return all the asets
         this.data = this.dataCopy;
       }
       this.sortDataInOrder();
@@ -292,12 +400,14 @@ export default {
       let sort = this.columnsData[this.filterDataBy];
       if (sort.order === 1) {
         if (this.filterDataBy === 0) {
+          //sort ascending by aset name (type string)
           this.data.sort((a, b) => {
             if (a.name > b.name) return 1;
             else if (a.name < b.name) return -1;
             return 0;
           });
         } else if (this.filterDataBy === 1) {
+          //sort ascending by size(type number)
           this.data.sort((a, b) => {
             return Number(a.size.slice(0, -2)) - Number(b.size.slice(0, -2));
           });
@@ -305,16 +415,87 @@ export default {
       }
       if (sort.order === 2) {
         if (this.filterDataBy === 0) {
+          //sort descending by aset name (type string)
           this.data.sort((a, b) => {
             if (b.name > a.name) return 1;
             else if (b.name < a.name) return -1;
             return 0;
           });
         } else if (this.filterDataBy === 1) {
+          //sort descending by size(type number)
           this.data.sort((a, b) => {
             return Number(b.size.slice(0, -2)) - Number(a.size.slice(0, -2));
           });
         }
+      }
+    },
+
+    /*-------------------------------*\
+          Asets selection system
+    \*-------------------------------*/
+
+    asetsSelectionToggle() {
+      //set asets selection to true/false if the selection button is pressed
+      this.asetsSelection = !this.asetsSelection;
+
+      if (!this.asetsSelection) {
+        //cancel the selection
+        this.cancelAsetsSelection();
+      }
+    },
+
+    selectAset(index) {
+      //check the checkbox if selection si true
+      if (this.asetsSelection) {
+        const checkbox = document.querySelectorAll(
+          ".aset--list .select-aset-btn--list input"
+        )[index];
+        checkbox.checked = !checkbox.checked;
+      }
+    },
+
+    cancelAsetsSelection() {
+      const asets = document.querySelectorAll(".aset--list");
+      //set asets selection to false
+      this.asetsSelection = false;
+      //go trough every aset
+      asets.forEach((aset) => {
+        //chage the background color to defalut
+        aset.style.backgroundColor = "#f7f8fb";
+        //hide the checkbox and show the aset image
+        aset.querySelector(".select-aset-btn--list").classList.add("hidden");
+        aset.querySelector(".aset-image--list").classList.remove("hidden");
+        //set the checkboxes to false
+        aset.querySelector(".select-aset-btn--list input").checked = false;
+      });
+    },
+
+    showAsetCheckbox(index) {
+      //when asetsSelection is true call the function on mouse over the aset
+      const asets = document.querySelectorAll(".aset--list");
+      if (this.asetsSelection) {
+        //show the checkbox and hide the aset image
+        asets[index]
+          .querySelector(".select-aset-btn--list")
+          .classList.remove("hidden");
+        asets[index].querySelector(".aset-image--list").classList.add("hidden");
+      }
+    },
+
+    hideAsetCheckbox(index) {
+      //when asetsSelection is true call the function on mouse leave the aset
+      const asets = document.querySelectorAll(".aset--list");
+      const checkbox = asets[index].querySelector(
+        ".select-aset-btn--list input"
+      );
+      if (this.asetsSelection && !checkbox.checked) {
+        //hide the checkbox and show the aset image if the checkbox is not checked
+        asets[index]
+          .querySelector(".select-aset-btn--list")
+          .classList.add("hidden");
+        asets[index]
+          .querySelector(".aset-image--list")
+          .classList.remove("hidden");
       }
     },
   },
@@ -322,6 +503,10 @@ export default {
 </script>
 
 <style>
+body {
+  overflow: hidden;
+}
+
 .content {
   padding: 0 25px;
   border-top: 2px solid #edeef8;
@@ -427,7 +612,10 @@ tr {
   display: flex;
   justify-content: flex-end;
   align-items: center;
-  margin-right: 10px;
+}
+
+.select-asets-btn--list > div {
+  margin-right: 15px;
   margin-top: 10px;
 }
 
@@ -455,7 +643,6 @@ tr {
   align-items: center;
   word-wrap: break-word;
   word-spacing: 0;
-  width: 10% !important;
 }
 
 .aset-size-column--list,
@@ -483,6 +670,24 @@ tr {
 }
 
 /*-----------------Aset image-------------*/
+.select-aset-btn--list {
+  display: grid;
+  align-items: center;
+  font-size: 18px;
+  height: 33px;
+  width: 33px;
+  border-radius: 50%;
+  margin: 0 5px;
+  font-size: 19px;
+}
+
+.select-aset-btn--list input {
+  height: 15px;
+}
+
+.select-aset-btn--list:hover {
+  background-color: #e6e9ee;
+}
 
 .aset-image--list {
   display: grid;

@@ -28,6 +28,10 @@ export default {
       dropdowns.forEach((dropdown) => {
         dropdown.classList.add("hidden");
       });
+      const asets = document.querySelectorAll(".aset--list");
+      asets.forEach((aset) => {
+        aset.style.backgroundColor = "#f7f8fb";
+      });
     },
   },
   mounted() {},
