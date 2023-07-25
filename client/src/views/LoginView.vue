@@ -354,15 +354,6 @@ export default {
   width: auto;
 }
 
-#error-message {
-  margin-top: -27px;
-  margin-bottom: 15px;
-  color: red;
-  font-size: 13px;
-  font-family: italic;
-  height: auto;
-}
-
 @media (max-width: 450px) {
   .login-box {
     width: 90%;

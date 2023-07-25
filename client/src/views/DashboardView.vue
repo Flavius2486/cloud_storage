@@ -21,14 +21,15 @@
           class="upload-files"
           :icon="['fas', 'file']"
           :typeInput="true"
-          @click="uploadFiles($event)"
+          @click="uploadFilesBtn($event)"
+          @change="uploadFiles()"
           >File</DropdownOption
         >
         <DropdownOption
           class="upload-folders"
           :icon="['fas', 'folder']"
           :typeInput="true"
-          @click="uploadFolders($event)"
+          @click="uploadFoldersBtn($event)"
           >Folder</DropdownOption
         >
       </Dropdown>
@@ -58,6 +59,9 @@
 </template>
 
 <script>
+import Resumable from "resumablejs";
+
+import config from "@/config.json";
 import Dropdown from "@/components/dropdown/dropdown.vue";
 import DropdownOption from "@/components/dropdown/dropdownOption";
 import AsetsWrapper from "@/components/asetsWrapper";
@@ -69,17 +73,51 @@ export default {
     AsetsWrapper,
   },
   data() {
-    return {};
+    return {
+      files: [],
+      resumable: null,
+    };
+  },
+  mounted() {
+    this.resumable = new Resumable({
+      target: `${config.BASE_URL}/upload`, // Your server endpoint
+      chunkSize: 1 * 1024 * 1024, // 1MB chunk size (adjust as needed)
+      simultaneousUploads: 4, // Number of simultaneous uploads (adjust as needed)
+      testChunks: false, // Set to true to test/retry broken chunks (optional)
+    });
+
+    this.resumable.on("fileAdded", (file) => {
+      this.files.push(file);
+    });
+
+    this.resumable.on("fileSuccess", (file, message) => {
+      console.log(message);
+    });
+
+    this.resumable.on("progress", () => {});
   },
   methods: {
-    uploadFiles() {
+    uploadFilesBtn() {
       const fileInput = document.querySelector(".upload-files input");
       fileInput.click();
     },
 
-    uploadFolders() {
+    uploadFoldersBtn() {
       const foldersInput = document.querySelector(".upload-folders input");
       foldersInput.click();
+    },
+
+    uploadFiles() {
+      document.querySelectorAll(".upload-files input").forEach((input) => {
+        if (input.files.length > 0) {
+          this.files.push(...input.files);
+        }
+      });
+      this.files.forEach((file) => {
+        this.resumable.addFile(file);
+      });
+      this.resumable.upload();
+      this.files = [];
     },
 
     showDropdown(event) {
