@@ -4,7 +4,7 @@ import config from "@/config.json";
 
 const isAuthenticated = async () => {
   try {
-    const response = await axios.get(`${config.BASE_URL}/login`, {
+    const response = await axios.get(`${config.BASE_URL}/verify-auth`, {
       headers: {
         Authorization: `Bearer ${window.$cookies.get("jwt")}`,
       },

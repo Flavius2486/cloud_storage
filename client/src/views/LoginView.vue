@@ -8,13 +8,13 @@
       <form>
         <div class="user-box">
           <input
-            v-model="email"
+            v-model="email_username"
             type="text"
-            class="email-input"
+            class="email_username-input"
             required
             @focus="updateInputColor($event, 0)"
           />
-          <label class="username-placeholder">Email</label>
+          <label class="username-placeholder">Email or username</label>
           <i class="input-error hidden">Field cannot be empty!</i>
         </div>
         <div class="user-box">
@@ -48,13 +48,12 @@
 
 <script>
 import config from "@/config.json";
-// import jwtDecode from "jwt-decode";
 import axios from "axios";
 
 export default {
   data() {
     return {
-      email: "",
+      email_username: "",
       password: "",
       remberMe: false,
     };
@@ -88,7 +87,7 @@ export default {
           .post(
             `${config.BASE_URL}/login`,
             {
-              email: this.email,
+              email_username: this.email_username,
               password: this.password,
               remember: this.remberMe,
             },

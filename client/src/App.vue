@@ -12,6 +12,7 @@
 <script>
 import sidebar from "@/components/sidebar/sidebar";
 import navbar from "@/components/navbar";
+import fetchData from "@/utils/fetchData";
 
 export default {
   name: "App",
@@ -28,13 +29,15 @@ export default {
       dropdowns.forEach((dropdown) => {
         dropdown.classList.add("hidden");
       });
-      const asets = document.querySelectorAll(".aset--list");
+      const asets = document.querySelectorAll(".file");
       asets.forEach((aset) => {
         aset.style.backgroundColor = "#f7f8fb";
       });
     },
   },
-  mounted() {},
+  mounted() {
+    fetchData();
+  },
   created: function () {
     window.addEventListener("click", this.hideDropdowns);
   },
@@ -49,6 +52,7 @@ export default {
   margin: 0;
   padding: 0;
   box-sizing: border-box;
+  font-family: Arial, Helvetica, sans-serif;
 }
 
 #app {

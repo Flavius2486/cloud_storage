@@ -2,8 +2,8 @@
   <div
     class="sidebar-btn"
     :class="{ active: active }"
-    @mouseover="animatedIcon"
-    @mouseleave="notAnimatedIcon"
+    @mouseover="iconAnimation = true"
+    @mouseleave="iconAnimation = false"
   >
     <div class="icon-container">
       <fa :icon="icon" :style="{ color: iconColor }" :beat="iconAnimation" />
@@ -37,14 +37,6 @@ export default {
     return {
       iconAnimation: false,
     };
-  },
-  methods: {
-    animatedIcon() {
-      this.iconAnimation = true;
-    },
-    notAnimatedIcon() {
-      this.iconAnimation = false;
-    },
   },
 };
 </script>

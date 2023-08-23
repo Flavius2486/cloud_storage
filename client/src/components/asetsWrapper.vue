@@ -3,32 +3,32 @@
     <header class="content--header">
       <div class="left-side--header">
         <div
-          class="asset-type-dropdown-btn asset-type--dropdown"
+          class="file-type-dropdown-btn file-type--dropdown"
           @click="showDropdown($event)"
         >
           <fa
-            :icon="selectedAssetType.icon"
-            class="asset-type--dropdown asset-type-dropdown-btn-icon"
+            :icon="selectedfileType.icon"
+            class="file-type--dropdown file-type-dropdown-btn-icon"
           />
-          <h1 class="asset-type--dropdown">{{ selectedAssetType.text }}</h1>
+          <h1 class="file-type--dropdown">{{ selectedfileType.text }}</h1>
           <fa
             :icon="['fas', 'chevron-down']"
-            class="asset-type--dropdown asset-type-dropdown-btn-icon"
+            class="file-type--dropdown file-type-dropdown-btn-icon"
           />
         </div>
         <Dropdown
-          :customClass="'asset-type--dropdown'"
+          :customClass="'file-type--dropdown'"
           :style="{ marginTop: '0px', marginLeft: '0px' }"
         >
           <div
-            v-for="(option, index) in assetsTypes"
+            v-for="(option, index) in filesTypes"
             :key="index"
             class="dropdown-option-for"
           >
             <DropdownOption
               :icon="option.icon"
-              v-if="selectedAssetType.text !== option.text"
-              @click="setSelectedAssetType(index)"
+              v-if="selectedfileType.text !== option.text"
+              @click="setSelectedfileType(index)"
             >
               {{ option.text }}
             </DropdownOption>
@@ -39,7 +39,7 @@
         <div
           v-if="tableFormat"
           class="change-files-wrapper-format-btn"
-          @click="setAsetsWrapperFormat()"
+          @click="setfilesWrapperFormat()"
         >
           <fa :icon="['fas', 'table-cells-large']" />
           <p>Table</p>
@@ -47,7 +47,7 @@
         <div
           v-else
           class="change-files-wrapper-format-btn"
-          @click="setAsetsWrapperFormat()"
+          @click="setfilesWrapperFormat()"
         >
           <fa :icon="['fas', 'list-ul']" />
           <p>List</p>
@@ -55,11 +55,85 @@
       </div>
     </header>
     <div v-if="tableFormat">
-      <h1>Table</h1>
+      <div class="files-header-table-format">
+        <div class="files-table-format-sort-titles">
+          <div class="files-name-column-table-format">
+            <p>Name</p>
+            <div
+              class="data-sort-order-icon"
+              @click="
+                {
+                  filterDataBy = 0;
+                  setSortingOrder();
+                }
+              "
+            >
+              <fa :icon="['fas', 'sort']" v-if="columnsData[0].order == 0" />
+              <fa :icon="['fas', 'sort-up']" v-if="columnsData[0].order == 1" />
+              <fa
+                :icon="['fas', 'sort-down']"
+                v-if="columnsData[0].order == 2"
+              />
+            </div>
+          </div>
+          <div class="files-size-column-table-format">
+            <p>Size</p>
+            <div
+              class="data-sort-order-icon"
+              @click="
+                {
+                  filterDataBy = 1;
+                  setSortingOrder();
+                }
+              "
+            >
+              <fa :icon="['fas', 'sort']" v-if="columnsData[1].order == 0" />
+              <fa :icon="['fas', 'sort-up']" v-if="columnsData[1].order == 1" />
+              <fa
+                :icon="['fas', 'sort-down']"
+                v-if="columnsData[1].order == 2"
+              />
+            </div>
+          </div>
+        </div>
+        <div class="select-files-btn" @click="filesSelectionToggle()">
+          <div>
+            <fa :icon="['fas', 'check-to-slot']" />
+          </div>
+        </div>
+      </div>
+      <div class="files-container-table-format">
+        <div
+          v-for="(file, index) in dataCopy"
+          :key="index"
+          @mouseenter="showfileCheckbox(index)"
+          @mouseleave="hidefileCheckbox(index)"
+          @click.stop="selectfile(index)"
+          class="file--table file"
+        >
+          <div class="file-name-column">
+            <div class="select-file-btn hidden">
+              <input type="checkbox" @click.stop @click.prevent />
+            </div>
+            <div class="file-image">
+              <img src="@/assets/logo.png" />
+            </div>
+            <p class="file-name">{{ file.name }}</p>
+          </div>
+          <div class="file-options-btn-container">
+            <div
+              class="file-options-btn file-dropdown file-options--dropdown"
+              @click="showDropdown($event, index)"
+            >
+              <fa :icon="['fas', 'ellipsis']" class="file-options--dropdown" />
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
-    <table v-else class="asets-table--list">
-      <tr class="asets-table--head--list">
-        <th class="asets-name-column--list">
+    <table v-else class="files-table">
+      <tr class="files-table--head">
+        <th class="files-name-column">
           <div>
             <p>Name</p>
             <div
@@ -80,7 +154,7 @@
             </div>
           </div>
         </th>
-        <th class="asets-size-column--list">
+        <th class="files-size-column">
           <div>
             <p>Size</p>
             <div
@@ -101,13 +175,13 @@
             </div>
           </div>
         </th>
-        <th class="asets-last-accesed--list">
+        <th class="files-last-accesed-column">
           <div>
             <p>Last accesed</p>
           </div>
         </th>
         <th>
-          <div class="select-asets-btn--list" @click="asetsSelectionToggle()">
+          <div class="select-files-btn" @click="filesSelectionToggle()">
             <div>
               <fa :icon="['fas', 'check-to-slot']" />
             </div>
@@ -115,58 +189,58 @@
         </th>
       </tr>
       <tr
-        class="aset--list"
-        v-for="(aset, index) in data"
+        class="file--list file"
+        v-for="(file, index) in data"
         :key="index"
-        @mouseenter="showAsetCheckbox(index)"
-        @mouseleave="hideAsetCheckbox(index)"
-        @click.stop="selectAset(index)"
+        @mouseenter="showfileCheckbox(index)"
+        @mouseleave="hidefileCheckbox(index)"
+        @click.stop="selectfile(index)"
       >
         <th>
-          <div class="aset-name-column--list">
-            <div class="select-aset-btn--list hidden">
+          <div class="file-name-column">
+            <div class="select-file-btn hidden">
               <input type="checkbox" @click.stop @click.prevent />
             </div>
-            <div class="aset-image--list">
+            <div class="file-image">
               <img src="@/assets/logo.png" />
             </div>
-            <p class="aset-name--list">{{ aset.name }}</p>
+            <p class="file-name">{{ file.name }}</p>
           </div>
         </th>
         <th>
-          <p class="aset-size--list">{{ aset.size }}</p>
+          <p class="file-size">{{ file.size }}</p>
         </th>
         <th>
-          <p class="aset-last-accesed--list">12.09.2022</p>
+          <p class="file-last-accesed">{{ file.last_accessed }}</p>
         </th>
         <th>
-          <div class="aset-options-btn-container--list">
+          <div class="file-options-btn-container">
             <div
-              class="aset-options-btn--list aset-dropdown--list asset-options--dropdown"
+              class="file-options-btn file-dropdown file-options--dropdown"
               @click="showDropdown($event, index)"
             >
-              <fa :icon="['fas', 'ellipsis']" class="asset-options--dropdown" />
+              <fa :icon="['fas', 'ellipsis']" class="file-options--dropdown" />
             </div>
           </div>
         </th>
       </tr>
     </table>
     <Dropdown
-      :customClass="'asset-options--dropdown'"
+      :customClass="'file-options--dropdown'"
       :style="{
         marginTop: '0px',
         marginLeft: '0px',
       }"
     >
       <div
-        v-for="(option, index) in asetsOptions"
+        v-for="(option, index) in filesOptions"
         :key="index"
         class="dropdown-option-for"
       >
         <DropdownOption
           :style="{ fontSize: '13px' }"
           :icon="option.icon"
-          v-if="selectedAssetType.text !== option.text"
+          v-if="selectedfileType.text !== option.text"
         >
           {{ option.text }}
         </DropdownOption>
@@ -184,16 +258,23 @@ export default {
     Dropdown,
     DropdownOption,
   },
+  props: {
+    data: {
+      type: Array,
+      required: true,
+      default: () => [],
+    },
+  },
   data() {
     return {
-      asetsSelection: false,
+      filesSelection: false,
       tableFormat: false,
-      selectedAssetType: {
+      selectedfileType: {
         icon: ["fas", "briefcase"],
         type: "all",
         text: "All",
       },
-      assetsTypes: [
+      filesTypes: [
         {
           text: "All",
           type: "all",
@@ -224,7 +305,7 @@ export default {
       ],
       prevSortedColumn: -1,
       filterDataBy: 0,
-      asetsOptions: [
+      filesOptions: [
         {
           text: "Open",
           icon: ["fas", "folder-open"],
@@ -266,65 +347,19 @@ export default {
           index: 7,
         },
       ],
-      data: [
-        {
-          name: ".pnbreak.png",
-          size: "20MB",
-          type: "file",
-        },
-        { name: "file1.pdf", size: "15MB", type: "file" },
-        { name: "video.mp4", size: "50MB", type: "file" },
-        { name: "document.docx", size: "10MB", type: "file" },
-        { name: "music.mp3", size: "5MB", type: "file" },
-        { name: "spreadsheet.xlsx", size: "30MB", type: "folder" },
-        { name: "presentation.pptx", size: "25MB", type: "file" },
-        { name: "archive.zip", size: "40MB", type: "file" },
-        { name: "code.js", size: "2MB", type: "file" },
-        { name: "text.txt", size: "1MB", type: "file" },
-        { name: "image2.png", size: "18MB", type: "file" },
-        { name: "file2.pdf", size: "13MB", type: "file" },
-        { name: "video2.mp4", size: "45MB", type: "file" },
-        { name: "document2.docx", size: "8MB", type: "file" },
-        { name: "music2.mp3", size: "3MB", type: "file" },
-        { name: "spreadsheet2.xlsx", size: "28MB", type: "file" },
-        { name: "presentation2.pptx", size: "23MB", type: "folder" },
-        { name: "archive2.zip", size: "38MB", type: "folder" },
-        { name: "code2.js", size: "4MB", type: "file" },
-        { name: "text2.txt", size: "3MB", type: "folder" },
-      ],
-      dataCopy: [
-        { name: "image.png", size: "20MB", type: "file" },
-        { name: "file1.pdf", size: "15MB", type: "file" },
-        { name: "video.mp4", size: "50MB", type: "file" },
-        { name: "document.docx", size: "10MB", type: "file" },
-        { name: "music.mp3", size: "5MB", type: "file" },
-        { name: "spreadsheet.xlsx", size: "30MB", type: "folder" },
-        { name: "presentation.pptx", size: "25MB", type: "file" },
-        { name: "archive.zip", size: "40MB", type: "file" },
-        { name: "code.js", size: "2MB", type: "file" },
-        { name: "text.txt", size: "1MB", type: "file" },
-        { name: "image2.png", size: "18MB", type: "file" },
-        { name: "file2.pdf", size: "13MB", type: "file" },
-        { name: "video2.mp4", size: "45MB", type: "file" },
-        { name: "document2.docx", size: "8MB", type: "file" },
-        { name: "music2.mp3", size: "3MB", type: "file" },
-        { name: "spreadsheet2.xlsx", size: "28MB", type: "file" },
-        { name: "presentation2.pptx", size: "23MB", type: "file" },
-        { name: "archive2.zip", size: "38MB", type: "folder" },
-        { name: "code2.js", size: "4MB", type: "file" },
-        { name: "text2.txt", size: "3MB", type: "folder" },
-      ],
+      dataCopy: this.data,
     };
   },
   methods: {
     showDropdown(event, index) {
-      const asets = document.querySelectorAll(".aset--list");
+      console.log(this);
+      const files = document.querySelectorAll(".file");
       const dropdowns = document.querySelectorAll(".dropdown");
 
-      this.cancelAsetsSelection();
+      this.cancelfilesSelection();
 
-      asets.forEach((aset) => {
-        aset.style.backgroundColor = "#f7f8fb";
+      files.forEach((file) => {
+        file.style.backgroundColor = "#f7f8fb";
       });
 
       dropdowns.forEach((dropdown) => {
@@ -333,8 +368,8 @@ export default {
         if (event.target.classList.contains(dropdown.classList[0])) {
           setTimeout(() => {
             dropdown.classList.remove("hidden");
-            //verify if is the asets dropdown
-            if (dropdown.classList[0] === "asset-options--dropdown") {
+            //verify if is the files dropdown
+            if (dropdown.classList[0] === "file-options--dropdown") {
               //set the top distance of the dropdown to the top distance of the cursor position
               dropdown.style.top = event.clientY + "px";
               //set the left distance of the dropdown to the left distance of the cursor position
@@ -348,33 +383,35 @@ export default {
                 //substract the height from the top distance
                 dropdown.style.top = event.clientY - exeededHeight - 10 + "px";
               }
-              //marg the aset that has the options dropdown open
-              asets[index].style.backgroundColor = "#E9ECF8";
+              //marg the file that has the options dropdown open
+              files[index].style.backgroundColor = "#E9ECF8";
             }
           }, 100);
         }
       });
     },
 
-    setSelectedAssetType(index) {
-      this.selectedAssetType = this.assetsTypes[index];
-      if (this.selectedAssetType.type !== "all") {
-        //return only the asets that has the specified type
-        this.data = this.dataCopy.filter((file) => {
-          if (this.assetsTypes[index].type === file.type) return true;
+    setSelectedfileType(index) {
+      this.selectedfileType = this.filesTypes[index];
+      if (this.selectedfileType.type !== "all") {
+        //return only the files that has the specified type
+        this.dataCopy = this.data.filter((file) => {
+          if (this.filesTypes[index].type === file.type) return true;
         });
       } else {
-        //return all the asets
-        this.data = this.dataCopy;
+        //return all the files
+        this.dataCopy = this.data;
       }
       this.sortDataInOrder();
     },
 
-    setAsetsWrapperFormat() {
+    setfilesWrapperFormat() {
       this.tableFormat = !this.tableFormat;
+      this.filesSelection = false;
     },
 
     setSortingOrder() {
+      this.defaultSorting();
       this.columnsData.forEach((sort) => {
         //verify if new column order is clicked
         if (this.prevSortedColumn !== this.filterDataBy) {
@@ -390,9 +427,18 @@ export default {
           sort.order++;
           if (sort.order > 2) {
             sort.order = 0;
+            this.defaultSorting();
           }
           this.sortDataInOrder();
         }
+      });
+    },
+
+    defaultSorting() {
+      this.dataCopy.sort((a, b) => {
+        let aDate = new Date(a.creation_date);
+        let bDate = new Date(b.creation_date);
+        return bDate.getTime() - aDate.getTime();
       });
     },
 
@@ -400,30 +446,30 @@ export default {
       let sort = this.columnsData[this.filterDataBy];
       if (sort.order === 1) {
         if (this.filterDataBy === 0) {
-          //sort ascending by aset name (type string)
-          this.data.sort((a, b) => {
+          //sort ascending by file name (type string)
+          this.dataCopy.sort((a, b) => {
             if (a.name > b.name) return 1;
             else if (a.name < b.name) return -1;
             return 0;
           });
         } else if (this.filterDataBy === 1) {
           //sort ascending by size(type number)
-          this.data.sort((a, b) => {
+          this.dataCopy.sort((a, b) => {
             return Number(a.size.slice(0, -2)) - Number(b.size.slice(0, -2));
           });
         }
       }
       if (sort.order === 2) {
         if (this.filterDataBy === 0) {
-          //sort descending by aset name (type string)
-          this.data.sort((a, b) => {
+          //sort descending by file name (type string)
+          this.dataCopy.sort((a, b) => {
             if (b.name > a.name) return 1;
             else if (b.name < a.name) return -1;
             return 0;
           });
         } else if (this.filterDataBy === 1) {
           //sort descending by size(type number)
-          this.data.sort((a, b) => {
+          this.dataCopy.sort((a, b) => {
             return Number(b.size.slice(0, -2)) - Number(a.size.slice(0, -2));
           });
         }
@@ -431,72 +477,78 @@ export default {
     },
 
     /*-------------------------------*\
-          Asets selection system
+          files selection system
     \*-------------------------------*/
 
-    asetsSelectionToggle() {
-      //set asets selection to true/false if the selection button is pressed
-      this.asetsSelection = !this.asetsSelection;
+    filesSelectionToggle() {
+      //set files selection to true/false if the selection button is pressed
+      this.filesSelection = !this.filesSelection;
 
-      if (!this.asetsSelection) {
+      if (!this.filesSelection) {
         //cancel the selection
-        this.cancelAsetsSelection();
+        this.cancelfilesSelection();
       }
     },
 
-    selectAset(index) {
+    selectfile(index) {
       //check the checkbox if selection si true
-      if (this.asetsSelection) {
+      if (this.filesSelection) {
         const checkbox = document.querySelectorAll(
-          ".aset--list .select-aset-btn--list input"
+          ".file .select-file-btn input"
         )[index];
         checkbox.checked = !checkbox.checked;
       }
     },
 
-    cancelAsetsSelection() {
-      const asets = document.querySelectorAll(".aset--list");
-      //set asets selection to false
-      this.asetsSelection = false;
-      //go trough every aset
-      asets.forEach((aset) => {
+    cancelfilesSelection() {
+      const files = document.querySelectorAll(".file");
+      //set files selection to false
+      this.filesSelection = false;
+      //go trough every file
+      files.forEach((file) => {
         //chage the background color to defalut
-        aset.style.backgroundColor = "#f7f8fb";
-        //hide the checkbox and show the aset image
-        aset.querySelector(".select-aset-btn--list").classList.add("hidden");
-        aset.querySelector(".aset-image--list").classList.remove("hidden");
+        file.style.backgroundColor = "#f7f8fb";
+        //hide the checkbox and show the file image
+        file.querySelector(".select-file-btn").classList.add("hidden");
+        file.querySelector(".file-image").classList.remove("hidden");
         //set the checkboxes to false
-        aset.querySelector(".select-aset-btn--list input").checked = false;
+        file.querySelector(".select-file-btn input").checked = false;
       });
     },
 
-    showAsetCheckbox(index) {
-      //when asetsSelection is true call the function on mouse over the aset
-      const asets = document.querySelectorAll(".aset--list");
-      if (this.asetsSelection) {
-        //show the checkbox and hide the aset image
-        asets[index]
-          .querySelector(".select-aset-btn--list")
+    showfileCheckbox(index) {
+      //when filesSelection is true call the function on mouse over the file
+      const files = document.querySelectorAll(".file");
+      if (this.filesSelection) {
+        //show the checkbox and hide the file image
+        files[index]
+          .querySelector(".select-file-btn")
           .classList.remove("hidden");
-        asets[index].querySelector(".aset-image--list").classList.add("hidden");
+        files[index].querySelector(".file-image").classList.add("hidden");
       }
     },
 
-    hideAsetCheckbox(index) {
-      //when asetsSelection is true call the function on mouse leave the aset
-      const asets = document.querySelectorAll(".aset--list");
-      const checkbox = asets[index].querySelector(
-        ".select-aset-btn--list input"
-      );
-      if (this.asetsSelection && !checkbox.checked) {
-        //hide the checkbox and show the aset image if the checkbox is not checked
-        asets[index]
-          .querySelector(".select-aset-btn--list")
-          .classList.add("hidden");
-        asets[index]
-          .querySelector(".aset-image--list")
-          .classList.remove("hidden");
+    hidefileCheckbox(index) {
+      //when filesSelection is true call the function on mouse leave the file
+      const files = document.querySelectorAll(".file");
+      const checkbox = files[index].querySelector(".select-file-btn input");
+      if (this.filesSelection && !checkbox.checked) {
+        //hide the checkbox and show the file image if the checkbox is not checked
+        files[index].querySelector(".select-file-btn").classList.add("hidden");
+        files[index].querySelector(".file-image").classList.remove("hidden");
       }
+    },
+  },
+  mounted() {
+    this.defaultSorting();
+  },
+  watch: {
+    data: {
+      immediate: true, // Trigger the handler immediately when the component is created
+      handler(newValue) {
+        this.dataCopy = newValue;
+        this.defaultSorting();
+      },
     },
   },
 };
@@ -510,6 +562,7 @@ body {
 .content {
   padding: 0 25px;
   border-top: 2px solid #edeef8;
+  font-weight: 500;
 }
 
 .content--header {
@@ -520,31 +573,31 @@ body {
   margin-top: 15px;
 }
 
-/*Select asets type button */
+/*Select files type button */
 
-.asset-type-dropdown-btn {
+.file-type-dropdown-btn {
   display: flex;
   align-items: center;
   justify-content: space-between;
   user-select: none;
-  font-size: 10.5px;
+  font-size: 12px;
   color: #19172e;
 }
 
-.asset-type-dropdown-btn .asset-type--dropdown:first-child {
+.file-type-dropdown-btn .file-type--dropdown:first-child {
   margin-right: 5px;
-  font-size: 18px;
+  font-size: 20px;
 }
 
-.asset-type-dropdown-btn .asset-type--dropdown:last-child {
+.file-type-dropdown-btn .file-type--dropdown:last-child {
   margin-left: 5px;
-  font-size: 16px;
+  font-size: 18px;
 }
 
 .change-files-wrapper-format-btn {
   display: flex;
   align-items: center;
-  font-size: 16px;
+  font-size: 18px;
   user-select: none;
 }
 
@@ -569,18 +622,18 @@ body {
 table,
 th,
 tr {
-  font-weight: 450;
+  font-weight: 500;
   margin: 0;
   padding: 0;
 }
 
-.asets-table--list {
+.files-table {
   width: 100%;
   border: none;
   border-collapse: collapse;
 }
 
-.asets-table--head--list {
+.files-table--head {
   background-color: #f7f8fb;
   position: sticky;
   top: 55px;
@@ -588,108 +641,118 @@ tr {
   width: 100%;
   padding: 15px;
   height: 40px;
+  font-size: 17px;
 }
 
-.asets-name-column--list > div {
+.files-name-column > div,
+.files-name-column-table-format,
+.files-size-column-table-format {
   display: flex;
   align-items: center;
   margin-left: 10px;
+  font-weight: 600;
+  font-size: 17px;
 }
 
-.asets-size-column--list > div {
+.files-size-column > div {
   display: flex;
   align-items: center;
   justify-content: center;
+  font-weight: 600;
 }
 
-.asets-last-accesed-column--list > div {
+.files-last-accesed-column > div {
   display: flex;
   align-items: center;
   justify-content: center;
+  font-weight: 600;
 }
 
-.select-asets-btn--list {
+.select-files-btn {
   display: flex;
   justify-content: flex-end;
   align-items: center;
 }
 
-.select-asets-btn--list > div {
+.select-files-btn > div {
   margin-right: 15px;
   margin-top: 10px;
+  font-size: 17px;
 }
 
-.aset--list {
+.file--list {
   width: 100%;
-  height: 40px;
+  height: 41px;
   background-color: #f7f8fb;
   border-bottom: 2px solid #eceef0;
   padding: 0 10px;
+  font-size: 17px;
 }
 
-.aset--list:hover {
+.file--list:hover {
   background-color: #f1f3f8;
 }
 
-/*----------asets detalies wrapper---------*/
+/*----------files detalies wrapper---------*/
 
-.aset-name-column--list *,
-.aset-name-column--list {
+.file-name-column *,
+.file-name-column {
   box-sizing: content-box;
 }
 
-.aset-name-column--list {
+.file-name-column {
   display: flex;
   align-items: center;
-  word-wrap: break-word;
   word-spacing: 0;
 }
 
-.aset-size-column--list,
-.aset-last-accesed-column--list {
+.file-size-column,
+.file-last-accesed-column {
   display: flex;
   justify-content: center;
   align-items: center;
 }
 
-.aset-options-btn-container--list {
+.file-options-btn-container {
   display: flex;
   justify-content: flex-end;
   margin-right: 10px;
 }
 
-.aset-options-btn--list {
+.file-options-btn {
   font-size: 18px;
   height: 25px;
   width: 25px;
   border-radius: 50%;
+  display: grid;
+  place-items: center;
 }
 
-.aset-options-btn--list:hover {
+.file-options-btn:hover {
   background-color: #e6e9ee;
 }
 
-/*-----------------Aset image-------------*/
-.select-aset-btn--list {
+/*-----------------file image-------------*/
+.select-file-btn {
   display: grid;
   align-items: center;
   font-size: 18px;
-  height: 33px;
-  width: 33px;
+  height: 33.5px;
+  width: 33.5px;
   border-radius: 50%;
   margin: 0 5px;
   font-size: 19px;
 }
 
-.select-aset-btn--list input {
-  height: 15px;
+.select-file-btn input {
+  height: 16px;
 }
 
-.select-aset-btn--list:hover {
+.select-file-btn:hover {
   background-color: #e6e9ee;
 }
 
-.aset-image--list {
+.file-image {
   display: grid;
   place-items: center;
   height: 30px;
@@ -702,9 +765,56 @@ tr {
   user-select: none;
 }
 
-.aset-image--list img {
+.file-image img {
   height: 25px;
   width: auto;
   border-radius: 50%;
+}
+
+.files-header-table-format {
+  width: 100%;
+  height: 40px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-right: 5px;
+  position: sticky;
+  top: 55px;
+  z-index: 2;
+  background-color: #f7f8fb;
+}
+
+.files-table-format-sort-titles {
+  width: 20%;
+  min-width: 200px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 17px;
+}
+
+.files-container-table-format {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1.2fr));
+}
+
+.file--table {
+  height: 41px;
+  margin: 5px;
+  background-color: #f7f8fb;
+  border: 2px solid #eceef0;
+  font-size: 17px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-radius: 10px;
+}
+
+.file--table:hover {
+  background-color: #f1f3f8;
+}
+
+.file-name {
+  text-overflow: ellipsis;
 }
 </style>

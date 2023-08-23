@@ -17,12 +17,17 @@
     "core-js": "^3.31.0",
     "crypto": "^1.0.1",
     "crypto-browserify": "^3.12.0",
+    "fetch-blob": "^4.0.0",
+    "formdata-polyfill": "^4.0.10",
     "jwt-decode": "^3.1.2",
     "resumable": "^0.0.1-1",
     "resumablejs": "^1.1.0",
+    "uninstall": "^0.0.0",
     "vue": "^3.2.13",
     "vue-cookies": "^1.8.3",
     "vue-router": "^4.0.3",
+    "vue-uploader": "^0.1.2",
+    "vuejs-uploader": "^0.6.5",
     "vuex": "^4.0.0"
   },
   "devDependencies": {

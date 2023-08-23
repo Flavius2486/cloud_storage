@@ -15,21 +15,28 @@
       </div>
       <Dropdown
         :customClass="'dropdown-upload'"
-        :style="{ marginTop: '45px', marginLeft: '0' }"
+        :style="{ marginTop: '38px', marginLeft: '0' }"
       >
         <DropdownOption
-          class="upload-files"
+          class="upload-file"
           :icon="['fas', 'file']"
-          :typeInput="true"
+          :type="'file'"
           @click="uploadFilesBtn($event)"
-          @change="uploadFiles()"
+          @change="
+            input = 'file';
+            uploadFiles($event);
+          "
           >File</DropdownOption
         >
         <DropdownOption
-          class="upload-folders"
+          class="upload-folder"
           :icon="['fas', 'folder']"
-          :typeInput="true"
+          :type="'folder'"
           @click="uploadFoldersBtn($event)"
+          @change="
+            input = 'folder';
+            uploadFiles($event);
+          "
           >Folder</DropdownOption
         >
       </Dropdown>
@@ -46,7 +53,7 @@
       </div>
       <Dropdown
         :customClass="'dropdown-create-folder'"
-        :style="{ marginTop: '45px', marginLeft: '140px' }"
+        :style="{ marginTop: '38px', marginLeft: '140px' }"
       >
         <DropdownOption :icon="['fas', 'folder-plus']">Folder</DropdownOption>
         <DropdownOption :icon="['fas', 'folder-open']"
@@ -55,69 +62,135 @@
       </Dropdown>
     </div>
   </header>
-  <AsetsWrapper></AsetsWrapper>
+  <AsetsWrapper :data="$store.state.notNestedFiles"></AsetsWrapper>
+  <FilesActionStatus
+    :status="filesStatus"
+    :numberOfFilesToUpload="filesToUpload"
+    :numberOfUploadedFiles="uploadedFiles"
+  ></FilesActionStatus>
 </template>
 
 <script>
 import Resumable from "resumablejs";
-
+import fetchData from "@/utils/fetchData";
 import config from "@/config.json";
 import Dropdown from "@/components/dropdown/dropdown.vue";
 import DropdownOption from "@/components/dropdown/dropdownOption";
 import AsetsWrapper from "@/components/asetsWrapper";
+import FilesActionStatus from "@/components/filesActionStatus.vue";
 
 export default {
   components: {
     Dropdown,
     DropdownOption,
     AsetsWrapper,
+    FilesActionStatus,
   },
   data() {
     return {
-      files: [],
       resumable: null,
+      filesStatus: null,
+      filesToUpload: 0,
+      uploadedFiles: 0,
+      lastFileAdedIndex: 0,
+      uploadedFilesFromGroup: 0,
+      filesGroup: [],
+      input: "file",
     };
   },
   mounted() {
     this.resumable = new Resumable({
-      target: `${config.BASE_URL}/upload`, // Your server endpoint
-      chunkSize: 1 * 1024 * 1024, // 1MB chunk size (adjust as needed)
-      simultaneousUploads: 4, // Number of simultaneous uploads (adjust as needed)
-      testChunks: false, // Set to true to test/retry broken chunks (optional)
+      target: `${config.BASE_URL}/upload`,
+      testChunks: false,
+      chunkSize: 4 * 1024 * 1024,
+      simultaneousUploads: 5,
+      maxChunkRetries: 5,
+      maxFileSize: Infinity,
+      minFileSize: 0,
+      withCredentials: true,
+    });
+    this.resumable.on("fileError", (file) => {
+      console.error("Error uploading " + file.file.name);
+      this.filesStatus = "error";
     });
 
-    this.resumable.on("fileAdded", (file) => {
-      this.files.push(file);
+    this.resumable.on("fileSuccess", () => {
+      fetchData();
+      this.uploadedFiles++;
+      if (this.uploadedFiles === this.filesToUpload) {
+        this.filesStatus = "success";
+        this.resumable.files = [];
+        this.filesGroup = [];
+        this.lastFileAdedIndex = 0;
+        this.uploadedFilesFromGroup = 0;
+      }
+
+      if (this.filesStatus !== "error") {
+        this.uploadedFilesFromGroup++;
+
+        //verify when a files group was added and reset the variables
+        if (this.uploadedFilesFromGroup === this.filesGroup.length) {
+          this.uploadedFilesFromGroup = 0;
+          this.filesGroup = [];
+          this.resumable.files = [];
+          //call the function again to create another files group if the file group was uploaded and there are still fikes to upload
+          if (this.uploadFiles !== this.filesToUpload) {
+            this.uploadFiles();
+          }
+        }
+      }
     });
 
-    this.resumable.on("fileSuccess", (file, message) => {
-      console.log(message);
+    this.resumable.on("fileProgress", () => {
+      this.filesStatus = "uploading";
     });
-
-    this.resumable.on("progress", () => {});
   },
   methods: {
     uploadFilesBtn() {
-      const fileInput = document.querySelector(".upload-files input");
+      const fileInput = document.querySelector(".upload-file input");
+      this.reinitializeVariablesFileStatus();
       fileInput.click();
     },
 
     uploadFoldersBtn() {
-      const foldersInput = document.querySelector(".upload-folders input");
+      const foldersInput = document.querySelector(".upload-folder input");
+      this.reinitializeVariablesFileStatus();
       foldersInput.click();
     },
 
+    reinitializeVariablesFileStatus() {
+      this.filesStatus = null;
+      this.uploadedFiles = 0;
+      this.filesToUpload = 0;
+    },
+
     uploadFiles() {
-      document.querySelectorAll(".upload-files input").forEach((input) => {
-        if (input.files.length > 0) {
-          this.files.push(...input.files);
+      let fileGroupSize = 0;
+      const files = Array.from(
+        document.querySelector(`.upload-${this.input} input`).files
+      );
+      this.filesToUpload = files.length;
+      //create files group to prevent using too much memory
+      for (let i = this.lastFileAdedIndex; i < files.length; i++) {
+        //calculate the file group size
+        fileGroupSize += files[i].size;
+        ///add the file to the array
+        this.filesGroup.push(files[i]);
+        //if the files group memory exeed 100 mb update the last file index that was added
+        if (fileGroupSize / 1048576 >= 100 || i + 1 == files.length) {
+          this.lastFileAdedIndex = i + 1;
+          break;
         }
-      });
-      this.files.forEach((file) => {
-        this.resumable.addFile(file);
-      });
-      this.resumable.upload();
-      this.files = [];
+      }
+      //add the files to resumable
+      this.resumable.addFiles(this.filesGroup);
+      this.resumable.opts.headers = {
+        NumberOfFiles: this.filesToUpload,
+      };
+      //upload the files
+      setTimeout(() => {
+        this.resumable.upload();
+      }, 500);
     },
 
     showDropdown(event) {
@@ -144,7 +217,7 @@ export default {
 
 .dashboard-view__header > h1 {
   color: #333343;
-  font-size: 30px;
+  font-size: 35px;
 }
 
 .dashboard-view__header--buttons {

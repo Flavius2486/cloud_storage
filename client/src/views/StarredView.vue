@@ -1,3 +1,11 @@
 <template>
-  <h1>Starred</h1>
+  <AsetsWrapper :data="$store.state.starredFiles"></AsetsWrapper>
 </template>
+
+<script>
+import AsetsWrapper from "@/components/asetsWrapper";
+
+export default {
+  components: { AsetsWrapper },
+};
+</script>

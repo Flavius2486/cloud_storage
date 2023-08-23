@@ -2,7 +2,20 @@
   <div class="dropdown-option">
     <fa :icon="icon" class="icon" />
     <p><slot></slot></p>
-    <input v-if="typeInput" type="file" style="display: none" />
+    <input
+      v-if="type == 'folder'"
+      type="file"
+      style="display: none"
+      multiple="true"
+      webkitdirectory
+    />
+    <input
+      v-else-if="type == 'file'"
+      type="file"
+      style="display: none"
+      multiple="true"
+      webkitfolder
+    />
   </div>
 </template>
 
@@ -10,9 +23,9 @@
 export default {
   name: "dropdown-option",
   props: {
-    typeInput: {
-      type: Boolean,
-      default: false,
+    type: {
+      type: String,
+      default: "none",
       required: false,
     },
     icon: {
