@@ -13,6 +13,8 @@
 import sidebar from "@/components/sidebar/sidebar";
 import navbar from "@/components/navbar";
 import fetchData from "@/utils/fetchData";
+import axios from "axios";
+import config from "@/config.json";
 
 export default {
   name: "App",
@@ -34,8 +36,17 @@ export default {
         aset.style.backgroundColor = "#f7f8fb";
       });
     },
+    resetData() {
+      axios
+        .post(`${config.BASE_URL}/reset-data`)
+        .then(() => {})
+        .catch((err) => {
+          throw err;
+        });
+    },
   },
   mounted() {
+    this.resetData();
     fetchData();
   },
   created: function () {

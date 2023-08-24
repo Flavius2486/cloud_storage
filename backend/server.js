@@ -145,7 +145,7 @@ app.get("/verify-auth", (req, res) => {
 let filesArray = [];
 let prevRelativePath = [];
 let foldersArray = [];
-let uploadedFiles = 0;
+let uploadedFoldersArray = [];
 
 function createFolders(i) {
   let relativePathLength =
@@ -162,10 +162,12 @@ function createFolders(i) {
       foldersArray.push({
         name: filesArray[i].path[j],
         uniqueName: generateUniqueId(),
-        path: filesArray[i].path ? filesArray[i].path : [],
+        path: filesArray[i].path
+          ? JSON.parse(JSON.stringify(filesArray[i].path))
+          : [],
         uniquePath: [],
         nestedPosition: j,
-        totalSize: 0,
+        size: 0,
       });
       newRelativePath = true;
     }
@@ -214,7 +216,7 @@ function setFileUniquePath(i) {
       let isEqual = true;
       //go trough relative path array
       for (let l = 0; l < filesArray[i].path.length; l++) {
-        //check if every folder name matcher the other one
+        //check if every folder name matches the other one
         if (filesArray[i].path[l] !== foldersArray[k].path[l]) {
           isEqual = false;
         }
@@ -232,13 +234,59 @@ function setFileUniquePath(i) {
         filesArray[i].uniquePath.length === 0 &&
         filesArray[i].uniquePath.length <= foldersArray[k].uniquePath.length
       ) {
-        foldersArray[k].totalSize += filesArray[i].size;
+        foldersArray[k].size += filesArray[i].size;
         filesArray[i].uniquePath = [...foldersArray[k].uniquePath]; // Make a copy
         filesArray[i].uniquePath.push(foldersArray[k].uniqueName); // Add uniqueName to the copied array
       }
     }
   }
 }
+
+function uploadFolders(user) {
+  for (let m = 0; m < foldersArray.length; m++) {
+    database.query(
+      "UPDATE data SET size = ? WHERE user_username = ? AND unique_identifier = ?",
+      [foldersArray[m].size, user.username, foldersArray[m].uniqueName]
+    );
+    let upload = true;
+    if (uploadedFoldersArray.length) {
+      upload = !uploadedFoldersArray.find(
+        (uniqueName) => uniqueName === foldersArray[m].uniqueName
+      );
+    }
+    if (upload) {
+      uploadedFoldersArray.push(foldersArray[m].uniqueName);
+      // delete the folder name from the path
+      let folderCopy = JSON.parse(JSON.stringify(foldersArray[m]));
+      folderCopy.path.pop();
+      folderCopy.path = folderCopy.path.join("/");
+      folderCopy.uniquePath = foldersArray[m].uniquePath.join("/");
+      storeData(folderCopy, "folder", user);
+    }
+  }
+}
+
+function storeData(data, type, user) {
+  const currentDate = new Date();
+  database.query(
+    "INSERT INTO data (name, unique_identifier, frontend_path,unique_path, creation_date, last_accessed, size, type,public,starred,user_username) VALUES (?, ?, ?, ?, ?, ?,?,?,?,?,?)",
+    [
+      data.name,
+      data.uniqueName,
+      [data.path],
+      [data.uniquePath],
+      currentDate,
+      currentDate,
+      data.size,
+      type,
+      false,
+      false,
+      user.username,
+    ]
+  );
+}
+
+function updateFoldersSize(folderUniqueName) {}
 
 app.post("/upload", (req, res) => {
   const form = formidable({
@@ -276,9 +324,9 @@ app.post("/upload", (req, res) => {
         //delete the last element(the file name) from the path
         fileRelativePath.pop();
       } else fileRelativePath = [];
-
       filesArray.push({
         name: fields.resumableFilename[0],
+        uniqueName: null,
         uniqueIdentifier: fields.resumableIdentifier[0],
         totalChunks: Number(fields.resumableTotalChunks[0]),
         path: fileRelativePath,
@@ -296,55 +344,22 @@ app.post("/upload", (req, res) => {
       for (let i = 0; i < filesArray.length; i++) {
         //if the array chunks has the length of the resumabel total chunks add the file in the database and on th disk storage
         if (filesArray[i].totalChunks === filesArray[i].chunks.length) {
-          uploadedFiles++;
+          const user = getUser(req.cookies);
           if (filesArray[i].path.length > 0) {
-            if (uploadedFiles < Number(req.headers.numberoffiles)) {
-              //get the folders from files relative path
-              createFolders(i);
-              getFoldersPath();
-              setFileUniquePath(i);
-            } else if (uploadedFiles === Number(req.headers.numberoffiles)) {
-              //get the folders from files relative path
-              createFolders(i);
-              //remove the last element (the current folder name) from the path array
-              getFoldersPath();
-              //se file unique path by checnking the folders path with the files path
-              setFileUniquePath(i);
-              // console.log(foldersArray);
-              //reset the variables after uploading all the files
-              const user = getUser(req.cookies);
-              if (user) {
-                for (let m = 0; m < foldersArray.length; m++) {
-                  const currentDate = new Date();
-                  // console.log()
-                  foldersArray[m].path.pop();
-                  foldersArray[m].path = foldersArray[m].path.join("/");
-                  foldersArray[m].uniquePath =
-                    foldersArray[m].uniquePath.join("/");
-                  database.query(
-                    "INSERT INTO data (name, unique_identifier, frontend_path,unique_path, creation_date, last_accessed, size, type,public,starred,user_username) VALUES (?, ?, ?, ?, ?, ?,?,?,?,?,?)",
-                    [
-                      foldersArray[m].name,
-                      foldersArray[m].uniqueName,
-                      [foldersArray[m].path],
-                      [foldersArray[m].uniquePath],
-                      currentDate,
-                      currentDate,
-                      foldersArray[m].totalSize,
-                      "folder",
-                      false,
-                      false,
-                      user.username,
-                    ]
-                  );
-                }
-              }
-              uploadedFiles = 0;
-              foldersArray = [];
-              prevRelativePath = [];
+            //get the folders from files relative path
+            createFolders(i);
+            //remove the last element (the current folder name) from the path array
+            getFoldersPath();
+            //se file unique path by checnking the folders path with the files path
+            setFileUniquePath(i);
+            // console.log(foldersArray);
+            //reset the variables after uploading all the files
+
+            if (user) {
+              uploadFolders(user);
             }
           }
-          const user = getUser(req.cookies);
+
           if (user) {
             let fileId;
             if (filesArray[i].name.match(/\.([^.]+)$/)) {
@@ -355,25 +370,10 @@ app.post("/upload", (req, res) => {
             } else {
               fileId = generateUniqueId();
             }
-            const currendDate = new Date();
+            filesArray[i].uniqueName = fileId;
             filesArray[i].path = filesArray[i].path.join("/");
             filesArray[i].uniquePath = filesArray[i].uniquePath.join("/");
-            database.query(
-              "INSERT INTO data (name, unique_identifier, frontend_path,unique_path, creation_date, last_accessed, size, type,public,starred,user_username) VALUES (?, ?, ?, ?, ?, ?,?,?,?,?,?)",
-              [
-                filesArray[i].name,
-                fileId,
-                [filesArray[i].path],
-                [filesArray[i].uniquePath],
-                currendDate,
-                currendDate,
-                filesArray[i].size,
-                "file",
-                false,
-                false,
-                user.username,
-              ]
-            );
+            storeData(filesArray[i], "file", user);
 
             filesArray.splice(i, 1);
             i--;
@@ -387,6 +387,15 @@ app.post("/upload", (req, res) => {
     });
     res.send("File uploaded successfully");
   });
+});
+
+app.post("/reset-data", (req, res) => {
+  foldersArray = [];
+  filesArray = [];
+  uploadedFoldersArray = [];
+  prevRelativePath = [];
+
+  res.json({ message: "The data has been reseted" });
 });
 
 app.get("/get-data", (req, res) => {
