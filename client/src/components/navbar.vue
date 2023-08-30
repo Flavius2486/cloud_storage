@@ -19,7 +19,9 @@
         :customClass="'dropdown-settings'"
         :style="{ marginTop: '0px', marginLeft: '-120px' }"
       >
-        <DropdownOption :icon="['fas', 'arrow-right-from-bracket']"
+        <DropdownOption
+          :icon="['fas', 'arrow-right-from-bracket']"
+          @click="logout()"
           >Logout</DropdownOption
         >
       </Dropdown>
@@ -30,6 +32,8 @@
 <script>
 import Dropdown from "@/components/dropdown/dropdown.vue";
 import DropdownOption from "@/components/dropdown/dropdownOption";
+import axios from "axios";
+import config from "@/config.json";
 
 export default {
   name: "nav-bar",
@@ -47,6 +51,20 @@ export default {
             dropdown.classList.remove("hidden");
           }, 100);
       });
+    },
+    logout() {
+      axios
+        .post(
+          `${config.BASE_URL}/logout`,
+          { token: window.$cookies.get("refreshToken") },
+          { withCredentials: true }
+        )
+        .then(() => {
+          this.$router.go();
+        })
+        .catch((error) => {
+          console.log(error);
+        });
     },
   },
 };

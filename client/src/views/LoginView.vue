@@ -28,12 +28,12 @@
           <label class="password-placeholder">Password</label>
           <i class="input-error hidden">Field cannot be empty!</i>
         </div>
-        <div class="remember-me-box" @click="rememberMe">
+        <!-- <div class="remember-me-box" @click="rememberMe">
           <div>
             <input type="checkbox" @click.stop />
             <p>Remember me</p>
           </div>
-        </div>
+        </div> -->
         <a class="submit-btn" type="submit" @click="handleLogin">
           <span></span>
           <span></span>
@@ -55,7 +55,7 @@ export default {
     return {
       email_username: "",
       password: "",
-      remberMe: false,
+      // remberMe: false,
     };
   },
   methods: {
@@ -89,7 +89,7 @@ export default {
             {
               email_username: this.email_username,
               password: this.password,
-              remember: this.remberMe,
+              // remember: this.remberMe,
             },
             {
               withCredentials: true,
@@ -112,10 +112,10 @@ export default {
       }
     },
 
-    rememberMe() {
-      this.remberMe = !this.remberMe;
-      document.querySelector(".remember-me-box input").checked = this.remberMe;
-    },
+    // rememberMe() {
+    //   this.remberMe = !this.remberMe;
+    //   document.querySelector(".remember-me-box input").checked = this.remberMe;
+    // },
   },
 };
 </script>
@@ -194,7 +194,7 @@ export default {
 }
 
 /*----------Remember check box----------*/
-
+/*
 .remember-me-box {
   position: absolute;
   margin-top: -18px;
@@ -219,7 +219,7 @@ export default {
   cursor: default;
   user-select: none;
 }
-
+*/
 /*-------Errors---------------*/
 
 .form-error {

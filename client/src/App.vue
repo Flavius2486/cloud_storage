@@ -13,6 +13,7 @@
 import sidebar from "@/components/sidebar/sidebar";
 import navbar from "@/components/navbar";
 import fetchData from "@/utils/fetchData";
+import refreshToken from "@/utils/refreshToken";
 import axios from "axios";
 import config from "@/config.json";
 
@@ -45,15 +46,28 @@ export default {
         });
     },
   },
-  mounted() {
+  mounted: function () {
     this.resetData();
-    fetchData();
+    refreshToken();
   },
   created: function () {
     window.addEventListener("click", this.hideDropdowns);
   },
   unmounted: function () {
     window.removeEventListener("click", this.hideDropdowns);
+  },
+  watch: {
+    "$store.state.isAuthenticated": {
+      immediate: true,
+      handler(newVal) {
+        if (newVal === true) {
+          window.setInterval(() => {
+            refreshToken();
+          }, 1800000);
+          fetchData();
+        }
+      },
+    },
   },
 };
 </script>

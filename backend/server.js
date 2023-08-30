@@ -32,7 +32,10 @@ app.use(express.urlencoded({ limit: Infinity, extended: true }));
 
 function getUser(cookies) {
   try {
-    const decodedToken = jwt.verify(cookies.jwt, process.env.ACCSESS_TOKEN);
+    const decodedToken = jwt.verify(
+      cookies.accessToken,
+      process.env.ACCESS_TOKEN
+    );
     return decodedToken;
   } catch (error) {
     console.error("Error decoding token:", error.message);
@@ -41,7 +44,8 @@ function getUser(cookies) {
 }
 
 function generateUniqueId() {
-  const characters = "1234567890abcdefghijklmnopqrstuvwxyz";
+  const characters =
+    "1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUWXYZ";
   const filenameLength = 15;
 
   // Generate a random filename
@@ -75,8 +79,83 @@ function getFormatedDate(date) {
   return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
 }
 
+function searchRefreshToken(token) {
+  database.query("SELECT token FROM refresh_tokens", (err, tokens) => {
+    if (err) throw err;
+    const refreshTokenExists = tokens.some(
+      (tokenObj) => tokenObj.token === token
+    );
+    if (refreshTokenExists) {
+      return true;
+    }
+  });
+  return false;
+}
+
+app.post("/refresh-token", (req, res) => {
+  const { refreshToken, accessToken } = req.body;
+  //check if the tokens exist
+  if (!refreshToken || !accessToken) {
+    return res.json({ auth: false });
+  } else {
+    //select all tokens
+    database.query("SELECT token FROM refresh_tokens", (err, tokens) => {
+      if (err) throw err;
+      //search the token
+      const refreshTokenExists = tokens.some(
+        (tokenObj) => tokenObj.token === refreshToken
+      );
+      //if the token was found verify the refresh token and create another one
+      if (refreshTokenExists === false) {
+        return res.json({ auth: false });
+      } else {
+        jwt.verify(refreshToken, process.env.REFRESH_TOKEN, (err, user) => {
+          if (err) {
+            return res.json({ auth: false });
+          } else {
+            jwt.verify(accessToken, process.env.ACCESS_TOKEN, (err) => {
+              if (err) return res.json({ auth: false });
+              else {
+                const accessToken = generateAccessToken({
+                  username: user.username,
+                  email: user.email,
+                });
+
+                res.cookie("accessToken", accessToken, {
+                  expires: new Date(Date.now() + 1000 * 60 * 32),
+                });
+
+                res.json({ auth: true });
+              }
+            });
+          }
+        });
+      }
+    });
+  }
+});
+
+app.post("/logout", (req, res) => {
+  const { token } = req.body;
+  //see if the token exists
+  if (searchRefreshToken(token)) {
+    //delete it from the database
+    database.query(
+      "DELETE FROM refresh_tokens WHERE token=?",
+      [token],
+      (err) => {
+        if (err) throw err;
+        //clear the cookies
+        res.clearCookie("refreshToken");
+        res.clearCookie("accessToken");
+        res.json({ logout: true });
+      }
+    );
+  }
+});
+
 app.post("/login", (req, res) => {
-  const { email_username, password, remember } = req.body;
+  const { email_username, password } = req.body;
   if (!password || !email_username) {
     return res.json({
       message: "Please provide username and/or password",
@@ -88,7 +167,7 @@ app.post("/login", (req, res) => {
       [email_username, email_username],
       (err, data) => {
         if (err) throw err;
-        if (data) {
+        if (data.length) {
           bcrypt.compare(password, data[0].password, (err, result) => {
             if (err) throw err;
             if (
@@ -96,29 +175,38 @@ app.post("/login", (req, res) => {
               (data[0].email === email_username ||
                 data[0].username === email_username)
             ) {
-              const expiresIn = remember
-                ? 7 * 24 * 60 * 60 * 1000
-                : (1 / 2) * 60 * 60 * 1000;
+              const user = {
+                email: data[0].email,
+                username: data[0].username,
+              };
 
-              const expirationDate = new Date(Date.now() + expiresIn);
-              const accsessToken = jwt.sign(
-                {
-                  email: data[0].email,
-                  username: data[0].username,
-                  exp: expirationDate.getTime(),
-                },
-                process.env.ACCSESS_TOKEN
+              const accessToken = generateAccessToken(user);
+
+              const refreshToken = jwt.sign(user, process.env.REFRESH_TOKEN);
+              database.query(
+                "INSERT INTO refresh_tokens (token) VALUES(?)",
+                [refreshToken],
+                (err) => {
+                  if (err) throw err;
+                }
               );
 
-              res.cookie("jwt", accsessToken, {
-                expires: expirationDate,
+              res.cookie("accessToken", accessToken, {
+                expires: new Date(Date.now() + 1000 * 60 * 32),
               });
 
-              res.json({ accsessToken: accsessToken, auth: true });
+              res.cookie("refreshToken", refreshToken, {});
+
+              res.json({ accessToken: accessToken, auth: true });
+            } else {
+              res.json({
+                message: "Incorrect email and/or password",
+                auth: false,
+              });
             }
           });
         } else {
-          return res.json({
+          res.json({
             message: "Incorrect email and/or password",
             auth: false,
           });
@@ -128,13 +216,19 @@ app.post("/login", (req, res) => {
   }
 });
 
+function generateAccessToken(user) {
+  return jwt.sign(user, process.env.ACCESS_TOKEN, {
+    expiresIn: "32m",
+  });
+}
+
 app.get("/verify-auth", (req, res) => {
-  const token = req.headers.authorization.split(" ")[1];
+  const token = req.headers.authorization;
   if (token === null) {
     return res.json({ auth: false, email: null });
   }
 
-  jwt.verify(token, process.env.ACCSESS_TOKEN, (err, email, username) => {
+  jwt.verify(token, process.env.ACCESS_TOKEN, (err, email, username) => {
     if (err) {
       return res.json({ auth: false, email: null });
     }
@@ -295,6 +389,10 @@ app.post("/upload", (req, res) => {
     maxFiles: Infinity,
   });
 
+  req.on("data", (data) => {
+    console.log(data, req.headers);
+  });
+
   form.parse(req, (err, fields, files) => {
     if (err) {
       console.error("Error parsing form:", err);
@@ -302,6 +400,7 @@ app.post("/upload", (req, res) => {
     }
     const file = files.file[0];
 
+    console.log(file);
     //set variable to false to let the program know that a chunk was not added(default)
     let chunkAdded = false;
     //verify if are any chunks in the files array
@@ -345,22 +444,19 @@ app.post("/upload", (req, res) => {
         //if the array chunks has the length of the resumabel total chunks add the file in the database and on th disk storage
         if (filesArray[i].totalChunks === filesArray[i].chunks.length) {
           const user = getUser(req.cookies);
-          if (filesArray[i].path.length > 0) {
-            //get the folders from files relative path
-            createFolders(i);
-            //remove the last element (the current folder name) from the path array
-            getFoldersPath();
-            //se file unique path by checnking the folders path with the files path
-            setFileUniquePath(i);
-            // console.log(foldersArray);
-            //reset the variables after uploading all the files
-
-            if (user) {
+          if (user) {
+            if (filesArray[i].path.length > 0) {
+              //get the folders from files relative path
+              createFolders(i);
+              //remove the last element (the current folder name) from the path array
+              getFoldersPath();
+              //se file unique path by checnking the folders path with the files path
+              setFileUniquePath(i);
+              // console.log(foldersArray);
+              //reset the variables after uploading all the files
               uploadFolders(user);
             }
-          }
 
-          if (user) {
             let fileId;
             if (filesArray[i].name.match(/\.([^.]+)$/)) {
               fileId =
@@ -371,10 +467,10 @@ app.post("/upload", (req, res) => {
               fileId = generateUniqueId();
             }
             filesArray[i].uniqueName = fileId;
-            filesArray[i].path = filesArray[i].path.join("/");
+            filesArray[i].path =
+              filesArray[i].path.length > 0 ? filesArray[i].path.join("/") : "";
             filesArray[i].uniquePath = filesArray[i].uniquePath.join("/");
             storeData(filesArray[i], "file", user);
-
             filesArray.splice(i, 1);
             i--;
           } else {
