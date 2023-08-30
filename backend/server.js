@@ -80,16 +80,20 @@ function getFormatedDate(date) {
 }
 
 function searchRefreshToken(token) {
-  database.query("SELECT token FROM refresh_tokens", (err, tokens) => {
-    if (err) throw err;
-    const refreshTokenExists = tokens.some(
-      (tokenObj) => tokenObj.token === token
-    );
-    if (refreshTokenExists) {
-      return true;
-    }
+  return new Promise((resolve, reject) => {
+    database.query("SELECT token FROM refresh_tokens", (err, tokens) => {
+      if (err) {
+        reject(err);
+        return;
+      }
+
+      const refreshTokenExists = tokens.some(
+        (tokenObj) => tokenObj.token === token
+      );
+
+      resolve(refreshTokenExists);
+    });
   });
-  return false;
 }
 
 app.post("/refresh-token", (req, res) => {
@@ -138,20 +142,26 @@ app.post("/refresh-token", (req, res) => {
 app.post("/logout", (req, res) => {
   const { token } = req.body;
   //see if the token exists
-  if (searchRefreshToken(token)) {
-    //delete it from the database
-    database.query(
-      "DELETE FROM refresh_tokens WHERE token=?",
-      [token],
-      (err) => {
-        if (err) throw err;
-        //clear the cookies
-        res.clearCookie("refreshToken");
-        res.clearCookie("accessToken");
-        res.json({ logout: true });
+  searchRefreshToken(token)
+    .then((exists) => {
+      if (exists) {
+        //delete it from the database
+        database.query(
+          "DELETE FROM refresh_tokens WHERE token=?",
+          [token],
+          (err) => {
+            if (err) throw err;
+            //clear the cookies
+            res.clearCookie("refreshToken");
+            res.clearCookie("accessToken");
+            res.json({ logout: true });
+          }
+        );
       }
-    );
-  }
+    })
+    .catch((error) => {
+      console.error(error);
+    });
 });
 
 app.post("/login", (req, res) => {
