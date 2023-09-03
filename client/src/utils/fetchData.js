@@ -4,7 +4,7 @@ import config from "@/config.json";
 
 const fetchData = () => {
   axios
-    .get(`${config.BASE_URL}/get-data`, { withCredentials: true })
+    .get(`${config.BASE_URL}/fetch-data`, { withCredentials: true })
     .then((response) => {
       store.commit("setData", {
         data: {
