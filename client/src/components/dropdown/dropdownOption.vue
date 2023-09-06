@@ -1,7 +1,7 @@
 <template>
-  <div class="dropdown-option">
+  <div :class="customClass" class="dropdown-option">
     <fa :icon="icon" class="icon" />
-    <p><slot></slot></p>
+    <p :class="customClass"><slot></slot></p>
     <input
       v-if="type == 'folder'"
       type="file"
@@ -31,6 +31,9 @@ export default {
     icon: {
       type: Array,
       required: true,
+    },
+    customClass: {
+      type: String,
     },
   },
   methods: {},

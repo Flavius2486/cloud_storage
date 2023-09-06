@@ -112,7 +112,7 @@ export default {
 };
 </script>
 
-<style>
+<style scoped>
 .sidebar {
   background: transparent;
   padding: 20px 0;

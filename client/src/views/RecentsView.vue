@@ -1,11 +1,11 @@
 <template>
-  <AsetsWrapper :data="$store.state.recentFiles"></AsetsWrapper>
+  <DataWrapper :data="$store.state.recentData"></DataWrapper>
 </template>
 
 <script>
-import AsetsWrapper from "@/components/asetsWrapper";
+import DataWrapper from "@/components/dataWrapper";
 
 export default {
-  components: { AsetsWrapper },
+  components: { DataWrapper },
 };
 </script>

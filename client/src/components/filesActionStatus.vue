@@ -64,12 +64,12 @@ export default {
 };
 </script>
 
-<style>
+<style scoped>
 .file-status-container {
   position: absolute;
   bottom: 10px;
   right: 10px;
-  z-index: 10;
+  z-index: 0;
   width: 330px;
   height: 50px;
   background-color: #fff;

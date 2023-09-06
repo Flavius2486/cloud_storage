@@ -30,63 +30,9 @@ app.use(bodyParser.json({ limit: Infinity }));
 app.use(express.json());
 app.use(express.urlencoded({ limit: Infinity, extended: true }));
 
-let filesArray = [];
-let prevRelativePath = [];
-let foldersArray = [];
-let uploadedFoldersArray = [];
-
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, "uploads/chunks/");
-  },
-  filename: (req, file, cb) => {
-    const chunkName =
-      req.body.resumableIdentifier +
-      "-" +
-      (Number(req.body.resumableChunkNumber) - 1);
-    //set variable to false to let the program know that a chunk was not added(default)
-    let chunkAdded = false;
-    //verify if are any chunks in the files array
-    if (filesArray.length > 0) {
-      //find the file that match the current resumable unique identifier
-      filesArray.forEach((fileData) => {
-        if (fileData.uniqueIdentifier === req.body.resumableIdentifier) {
-          //if it found a match add the resumable chunk in the chunks array on th chunk number position - 1
-          fileData.chunks[Number(req.body.resumableChunkNumber) - 1] =
-            chunkName;
-          chunkAdded = true;
-        }
-      });
-    }
-    //if it didn't find a resumabke identifier match or the files array is empty add a new object in the files array with the necessarry data
-    if (!chunkAdded) {
-      //if the file has a relative path adn the relative path array is longer that 1 means the file in in a folder
-      let fileRelativePath = req.body.resumableRelativePath.split("/");
-      if (fileRelativePath) {
-        //delete the last element(the file name) from the path
-        fileRelativePath.pop();
-      } else fileRelativePath = [];
-      filesArray.push({
-        name: req.body.resumableFilename,
-        uniqueName: null,
-        uniqueIdentifier: req.body.resumableIdentifier,
-        totalChunks: Number(req.body.resumableTotalChunks),
-        path: fileRelativePath,
-        uniquePath: [],
-        size: Number(req.body.resumableTotalSize),
-        status: 0,
-        chunks: [],
-      });
-      //add the cunk
-      filesArray[filesArray.length - 1].chunks[
-        Number(req.body.resumableChunkNumber) - 1
-      ] = chunkName;
-    }
-    cb(null, chunkName);
-  },
-});
-
-const upload = multer({ storage: storage });
+/*---------------------------------------------------------*\
+                 General functions
+/*---------------------------------------------------------*/
 
 function getUser(cookies) {
   try {
@@ -136,6 +82,36 @@ function getFormatedDate(date) {
     date.getSeconds() > 9 ? date.getSeconds() : "0" + date.getSeconds();
   return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
 }
+
+function storeData(data, type, user) {
+  const currentDate = new Date();
+  database.query(
+    "INSERT INTO data (name, unique_identifier, frontend_path, unique_path, creation_date, last_accessed, size, type, public, starred, user_username) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+    [
+      data.name,
+      data.uniqueName,
+      data.path, // Remove square brackets
+      data.uniquePath, // Remove square brackets
+      currentDate,
+      currentDate,
+      data.size,
+      type,
+      data.public,
+      false,
+      user.username,
+    ],
+    (error, results) => {
+      if (error) {
+        // Handle the error here
+        console.error("Error inserting data:", error);
+      }
+    }
+  );
+}
+
+/*---------------------------------------------------------*\
+                  Authentication system
+/*---------------------------------------------------------*/
 
 function searchRefreshToken(token) {
   return new Promise((resolve, reject) => {
@@ -311,6 +287,16 @@ app.get("/verify-auth", (req, res) => {
   });
 });
 
+/*---------------------------------------------------------*\
+                  Uploading system
+/*---------------------------------------------------------*/
+
+let receivedFiles = 0;
+let filesArray = [];
+let prevRelativePath = [];
+let foldersArray = [];
+let uploadedFoldersArray = [];
+
 function createFolders(i) {
   let relativePathLength =
     filesArray[i].path.length < prevRelativePath.length
@@ -330,6 +316,7 @@ function createFolders(i) {
           ? JSON.parse(JSON.stringify(filesArray[i].path))
           : [],
         uniquePath: [],
+        public: false,
         nestedPosition: j,
         size: 0,
       });
@@ -430,26 +417,6 @@ function uploadFolders(user) {
   }
 }
 
-function storeData(data, type, user) {
-  const currentDate = new Date();
-  database.query(
-    "INSERT INTO data (name, unique_identifier, frontend_path,unique_path, creation_date, last_accessed, size, type,public,starred,user_username) VALUES (?, ?, ?, ?, ?, ?,?,?,?,?,?)",
-    [
-      data.name,
-      data.uniqueName,
-      [data.path],
-      [data.uniquePath],
-      currentDate,
-      currentDate,
-      data.size,
-      type,
-      false,
-      false,
-      user.username,
-    ]
-  );
-}
-
 async function combineChunks(chunkFilePaths, fileId) {
   let combinedStream = fs.createWriteStream(
     path.join("./uploads/files/", fileId),
@@ -480,6 +447,62 @@ async function combineChunks(chunkFilePaths, fileId) {
 
   combinedStream.end(); // Close the combined file stream
 }
+
+/*-------------Multer configuration --------------------*/
+
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, "uploads/chunks/");
+  },
+  filename: (req, file, cb) => {
+    const chunkName =
+      req.body.resumableIdentifier +
+      "-" +
+      (Number(req.body.resumableChunkNumber) - 1);
+    //set variable to false to let the program know that a chunk was not added(default)
+    let chunkAdded = false;
+    //verify if are any chunks in the files array
+    if (filesArray.length > 0) {
+      //find the file that match the current resumable unique identifier
+      filesArray.forEach((fileData) => {
+        if (fileData.uniqueIdentifier === req.body.resumableIdentifier) {
+          //if it found a match add the resumable chunk in the chunks array on th chunk number position - 1
+          fileData.chunks[Number(req.body.resumableChunkNumber) - 1] =
+            chunkName;
+          chunkAdded = true;
+        }
+      });
+    }
+    //if it didn't find a resumabke identifier match or the files array is empty add a new object in the files array with the necessarry data
+    if (!chunkAdded) {
+      //if the file has a relative path adn the relative path array is longer that 1 means the file in in a folder
+      let fileRelativePath = req.body.resumableRelativePath.split("/");
+      if (fileRelativePath) {
+        //delete the last element(the file name) from the path
+        fileRelativePath.pop();
+      } else fileRelativePath = [];
+      filesArray.push({
+        name: req.body.resumableFilename,
+        uniqueName: null,
+        uniqueIdentifier: req.body.resumableIdentifier,
+        totalChunks: Number(req.body.resumableTotalChunks),
+        path: fileRelativePath,
+        uniquePath: [],
+        size: Number(req.body.resumableTotalSize),
+        public: false,
+        status: 0,
+        chunks: [],
+      });
+      //add the cunk
+      filesArray[filesArray.length - 1].chunks[
+        Number(req.body.resumableChunkNumber) - 1
+      ] = chunkName;
+    }
+    cb(null, chunkName);
+  },
+});
+
+const upload = multer({ storage: storage });
 
 app.post("/upload", upload.array("file"), (req, res) => {
   //verify if any of the files got all the chunks
@@ -514,35 +537,43 @@ app.post("/upload", upload.array("file"), (req, res) => {
             uploadFolders(user);
           }
 
-          let fileId;
-          if (filesArray[i].name.match(/\.([^.]+)$/)) {
-            fileId =
-              generateUniqueId() +
-              "." +
-              filesArray[i].name.match(/\.([^.]+)$/)[1];
-          } else {
-            fileId = generateUniqueId();
-          }
-
-          //check if the path is not empty to prevent getting error
-          // console.log(filesArray[i]);
-          filesArray[i].uniqueName = fileId;
-          filesArray[i].path =
-            filesArray[i].path.length > 0 ? filesArray[i].path.join("/") : "";
-
-          //check if the path is not empty to prevent getting error
-          filesArray[i].uniquePath =
-            filesArray[i].uniquePath.length > 0
-              ? filesArray[i].uniquePath.join("/")
-              : "";
           const promise = combineChunks(
             filesArray[i].chunks,
             filesArray[i].uniqueName
           )
             .then(() => {
+              let fileId;
+              if (filesArray[i].name.match(/\.([^.]+)$/)) {
+                fileId =
+                  generateUniqueId() +
+                  "." +
+                  filesArray[i].name.match(/\.([^.]+)$/)[1];
+              } else {
+                fileId = generateUniqueId();
+              }
+
+              //check if the path is not empty to prevent getting error
+              // console.log(filesArray[i]);
+              console.log(fileId);
+              filesArray[i].uniqueName = fileId;
+              filesArray[i].path =
+                filesArray[i].path.length > 0
+                  ? filesArray[i].path.join("/")
+                  : "";
+
+              //check if the path is not empty to prevent getting error
+              filesArray[i].uniquePath =
+                filesArray[i].uniquePath.length > 0
+                  ? filesArray[i].uniquePath.join("/")
+                  : "";
               storeData(filesArray[i], "file", user);
               filesArray.splice(i, 1);
               i--;
+              receivedFiles++;
+              if (receivedFiles === Number(req.headers.numberoffiles)) {
+                resetData();
+                receivedFiles = 0;
+              }
             })
             .catch((error) => {
               console.error("Error combining chunks:", error);
@@ -560,11 +591,42 @@ app.post("/upload", upload.array("file"), (req, res) => {
   res.send("File uploaded successfully");
 });
 
-app.post("/reset-data", (req, res) => {
+/*---------------------------------------------------------*\
+                  Create Folders
+/*---------------------------------------------------------*/
+
+app.post("/create-folder", (req, res) => {
+  const user = getUser(req.body);
+  if (user !== null) {
+    const { name, isPublic, frontendPath, uniquePath } = req.body;
+    const data = {
+      name: name,
+      uniqueName: generateUniqueId(),
+      path: frontendPath,
+      uniquePath: uniquePath,
+      size: 0,
+      public: isPublic,
+    };
+    storeData(data, "folder", user);
+    res.json({ message: "Folder created successfully" });
+  } else {
+    res.json({ message: "User not authorized" });
+  }
+});
+
+/*---------------------------------------------------------*\
+                  Get data and reset data
+/*---------------------------------------------------------*/
+
+function resetData() {
   foldersArray = [];
   filesArray = [];
   uploadedFoldersArray = [];
   prevRelativePath = [];
+}
+
+app.post("/reset-data", (req, res) => {
+  resetData();
 
   res.json({ message: "The data has been reseted" });
 });
@@ -580,47 +642,61 @@ app.get("/fetch-data", (req, res) => {
         const currentTime = new Date();
         const oneWeekMills = 7 * 24 * 60 * 60 * 1000;
 
-        let starredFiles = [];
-        let publicFiles = [];
-        let recentFiles = [];
-        let deletedFiles = [];
-        // let nestedFiles = [];
-        let notNestedFiles = [];
+        let starredData = [];
+        let publicData = [];
+        let recentData = [];
+        let deletedData = [];
+        let folders = [];
+        let rootData = [];
 
-        result.forEach((file) => {
-          const fileLastAccessed = file.last_accessed;
-          file.last_accessed = getFormatedDate(file.last_accessed);
-          file.creation_date = getFormatedDate(file.creation_date);
-          if (file.deletion_time) {
-            file.deletion_date = getFormatedDate(file.deletion_date);
-            deletedFiles.push(file);
+        folders[0] = {
+          frontend_path: "/",
+          unique_path: "",
+        };
+
+        result.forEach((data) => {
+          const fileLastAccessed = data.last_accessed;
+          data.last_accessed = getFormatedDate(data.last_accessed);
+          data.creation_date = getFormatedDate(data.creation_date);
+          if (data.deletion_time) {
+            data.deletion_date = getFormatedDate(data.deletion_date);
+            deletedData.push(data);
           } else {
-            if (file.starred) {
-              starredFiles.push(file);
+            if (data.starred) {
+              starredData.push(data);
             }
-            if (file.public) {
-              publicFiles.push(file);
+            if (data.public) {
+              publicData.push(data);
             }
             if (
               currentTime.getTime() - fileLastAccessed.getTime() >
               oneWeekMills
             ) {
-              recentFiles.push(file);
+              recentData.push(data);
             }
-            if (file.frontend_path === "") {
-              notNestedFiles.push(file);
-            } //else if (file.frontend_path !== "") {
-            //   nestedFiles.push(file);
-            // }
+            if (data.frontend_path === "") {
+              rootData.push(data);
+            }
+            if (data.type === "folder") {
+              const frontendPath =
+                data.frontend_path.length > 0 ? data.frontend_path + "/" : "";
+              const uniquePath =
+                data.unique_path.length > 0 ? data.unique_path + "/" : "";
+              const folder = {
+                frontend_path: "/" + frontendPath + data.name + "/",
+                unique_path: uniquePath + data.unique_identifier,
+              };
+              folders.push(folder);
+            }
           }
         });
         res.json({
-          notNestedFiles: notNestedFiles,
-          // nestedFiles: nestedFiles,
-          deletedFiles: deletedFiles,
-          recentFiles: recentFiles,
-          publicFiles: publicFiles,
-          starredFiles: starredFiles,
+          rootData: rootData,
+          folders: folders,
+          deletedData: deletedData,
+          recentData: recentData,
+          publicData: publicData,
+          starredData: starredData,
         });
       }
     );

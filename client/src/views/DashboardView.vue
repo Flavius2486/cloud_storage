@@ -55,36 +55,67 @@
         :customClass="'dropdown-create-folder'"
         :style="{ marginTop: '38px', marginLeft: '140px' }"
       >
-        <DropdownOption :icon="['fas', 'folder-plus']">Folder</DropdownOption>
-        <DropdownOption :icon="['fas', 'folder-open']"
+        <DropdownOption
+          :icon="['fas', 'folder-plus']"
+          :customClass="'modal-create-folder'"
+          @click="showModal($event)"
+          >Folder</DropdownOption
+        >
+        <DropdownOption
+          :icon="['fas', 'folder-open']"
+          :customClass="'modal-create-public-folder'"
+          @click="showModal($event)"
           >Public Folder</DropdownOption
         >
       </Dropdown>
     </div>
   </header>
-  <AsetsWrapper :data="$store.state.notNestedFiles"></AsetsWrapper>
+  <DataWrapper :data="$store.state.rootData"></DataWrapper>
   <FilesActionStatus
     :status="filesStatus"
     :numberOfFilesToUpload="filesToUpload"
     :numberOfUploadedFiles="uploadedFiles"
   ></FilesActionStatus>
+  <div class="message-box"></div>
+  <Modal
+    :title="'Create folder'"
+    :customClass="'modal-create-folder'"
+    ref="Modal"
+  >
+    <CreatePrivateFolder @hide-modal="hideModalTrigger()"></CreatePrivateFolder>
+  </Modal>
+  <Modal
+    :title="'Create public folder'"
+    :customClass="'modal-create-public-folder'"
+    ref="Modal"
+  >
+    <CreatePublicFolder @hide-modal="hideModalTrigger()"></CreatePublicFolder>
+  </Modal>
 </template>
 
 <script>
 import Resumable from "resumablejs";
-import fetchData from "@/utils/fetchData";
-import config from "@/config.json";
+
 import Dropdown from "@/components/dropdown/dropdown.vue";
 import DropdownOption from "@/components/dropdown/dropdownOption";
-import AsetsWrapper from "@/components/asetsWrapper";
+import DataWrapper from "@/components/dataWrapper";
 import FilesActionStatus from "@/components/filesActionStatus.vue";
+import Modal from "@/components/modal/modal.vue";
+import CreatePrivateFolder from "@/components/modal/modalContent/createPrivateFolder.vue";
+import CreatePublicFolder from "@/components/modal/modalContent/createPublicFolder.vue";
+
+import fetchData from "@/utils/fetchData";
+import config from "@/config.json";
 
 export default {
   components: {
     Dropdown,
     DropdownOption,
-    AsetsWrapper,
+    DataWrapper,
     FilesActionStatus,
+    Modal,
+    CreatePrivateFolder,
+    CreatePublicFolder,
   },
   data() {
     return {
@@ -146,16 +177,28 @@ export default {
     });
   },
   methods: {
+    hideModalTrigger() {
+      console.log();
+      this.$refs.Modal.hideModal();
+    },
     uploadFilesBtn() {
-      const fileInput = document.querySelector(".upload-file input");
-      this.reinitializeVariablesFileStatus();
-      fileInput.click();
+      if (this.filesStatus !== "uploading") {
+        const fileInput = document.querySelector(".upload-file input");
+        this.reinitializeVariablesFileStatus();
+        fileInput.click();
+      } else {
+        this.showMessage("Uploading in progress. Please wait...");
+      }
     },
 
     uploadFoldersBtn() {
-      const foldersInput = document.querySelector(".upload-folder input");
-      this.reinitializeVariablesFileStatus();
-      foldersInput.click();
+      if (this.filesStatus !== "uploading") {
+        const foldersInput = document.querySelector(".upload-folder input");
+        this.reinitializeVariablesFileStatus();
+        foldersInput.click();
+      } else {
+        this.showMessage("Uploading in progress. Please wait...");
+      }
     },
 
     reinitializeVariablesFileStatus() {
@@ -193,6 +236,28 @@ export default {
       }, 500);
     },
 
+    showMessage(message) {
+      const messageBox = document.querySelector(".message-box");
+      messageBox.innerHTML = message;
+      messageBox.classList.remove("hide-message");
+      messageBox.classList.add("show-message");
+      setTimeout(() => {
+        messageBox.classList.remove("show-message");
+        messageBox.classList.add("hide-message");
+      }, 3000);
+    },
+
+    showModal(event) {
+      const modals = document.querySelectorAll(".modal");
+      const overlay = document.querySelector(".overlay");
+      modals.forEach((modal) => {
+        if (event.target.classList.contains(modal.classList[0])) {
+          modal.classList.remove("hidden");
+          overlay.classList.remove("hidden");
+        }
+      });
+    },
+
     showDropdown(event) {
       const dropdowns = document.querySelectorAll(".dropdown");
       dropdowns.forEach((dropdown) => {
@@ -207,7 +272,7 @@ export default {
 };
 </script>
 
-<style>
+<style scoped>
 /*---------------Dashboard header------------------*/
 
 .dashboard-view__header {
@@ -260,5 +325,52 @@ export default {
 
 .dashboard-view__create-folder--button p {
   color: #141323;
+}
+
+/*---------------Message Box------------------*/
+
+.message-box {
+  display: block;
+  position: absolute;
+  padding: 10px;
+  margin-left: 15px;
+  bottom: -200px;
+  background-color: #1e1f1e;
+  border-radius: 10px;
+  color: #f5f4f5;
+  animation-duration: 0.5s;
+  animation-timing-function: ease-in-out forwards;
+  z-index: 1;
+}
+
+.show-message {
+  bottom: 20px;
+  animation-name: slideUp;
+}
+
+.hide-message {
+  animation-name: slideDown;
+}
+
+@keyframes slideUp {
+  from {
+    bottom: 0;
+    opacity: 0;
+  }
+  to {
+    bottom: 20px;
+    opacity: 1;
+  }
+}
+
+@keyframes slideDown {
+  from {
+    bottom: 20px;
+    opacity: 1;
+  }
+  to {
+    bottom: 0;
+    opacity: 0;
+  }
 }
 </style>

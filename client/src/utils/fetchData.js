@@ -8,12 +8,12 @@ const fetchData = () => {
     .then((response) => {
       store.commit("setData", {
         data: {
-          notNestedFiles: response.data.notNestedFiles,
-          // nestedFiles: response.data.nestedFiles,
-          deletedFiles: response.data.deletedFiles,
-          recentFiles: response.data.recentFiles,
-          publicFiles: response.data.publicFiles,
-          starredFiles: response.data.starredFiles,
+          rootData: response.data.rootData,
+          folders: response.data.folders,
+          deletedData: response.data.deletedData,
+          recentData: response.data.recentData,
+          publicData: response.data.publicData,
+          starredData: response.data.starredData,
         },
       });
     });

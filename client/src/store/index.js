@@ -3,12 +3,12 @@ import { createStore } from "vuex";
 export default createStore({
   state: {
     isAuthenticated: false,
-    notNestedFiles: [],
-    // nestedFiles: [],
-    deletedFiles: [],
-    recentFiles: [],
-    publicFiles: [],
-    starredFiles: [],
+    rootData: [],
+    nestedData: [],
+    deletedData: [],
+    recentData: [],
+    publicData: [],
+    starredData: [],
   },
   getters: {},
   mutations: {
@@ -16,12 +16,12 @@ export default createStore({
       state.isAuthenticated = data.auth;
     },
     setData(state, data) {
-      state.notNestedFiles = data.data.notNestedFiles;
-      state.nestedFiles = data.data.nestedFiles;
-      state.deletedFiles = data.data.deletedFiles;
-      state.recentFiles = data.data.recentFiles;
-      state.publicFiles = data.data.publicFiles;
-      state.starredFiles = data.data.starredFiles;
+      state.rootData = data.data.rootData;
+      state.folders = data.data.folders;
+      state.deletedData = data.data.deletedData;
+      state.recentData = data.data.recentData;
+      state.publicData = data.data.publicData;
+      state.starredData = data.data.starredData;
     },
   },
   actions: {},
