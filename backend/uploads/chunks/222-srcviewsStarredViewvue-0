@@ -1,0 +1,11 @@
+<template>
+  <DataWrapper :data="$store.state.starredFiles"></DataWrapper>
+</template>
+
+<script>
+import DataWrapper from "@/components/dataWrapper";
+
+export default {
+  components: { DataWrapper },
+};
+</script>

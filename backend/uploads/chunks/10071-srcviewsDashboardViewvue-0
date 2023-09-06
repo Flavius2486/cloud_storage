@@ -1,0 +1,371 @@
+<template>
+  <header class="dashboard-view__header">
+    <h1>Dashboard</h1>
+    <div class="dashboard-view__header--buttons">
+      <div
+        class="dashboard-view__upload-asets--button dropdown-upload"
+        @click="showDropdown($event)"
+      >
+        <fa :icon="['fas', 'upload']" class="dropdown-upload" />
+        <p class="dropdown-upload">Upload</p>
+        <fa
+          :icon="['fas', 'chevron-down']"
+          class="dashboard-view__header--buttons__down-arrow--icon dropdown-upload"
+        />
+      </div>
+      <Dropdown
+        :customClass="'dropdown-upload'"
+        :style="{ marginTop: '38px', marginLeft: '0' }"
+      >
+        <DropdownOption
+          class="upload-file"
+          :icon="['fas', 'file']"
+          :type="'file'"
+          @click="uploadFilesBtn($event)"
+          @change="
+            input = 'file';
+            uploadFiles($event);
+          "
+          >File</DropdownOption
+        >
+        <DropdownOption
+          class="upload-folder"
+          :icon="['fas', 'folder']"
+          :type="'folder'"
+          @click="uploadFoldersBtn($event)"
+          @change="
+            input = 'folder';
+            uploadFiles($event);
+          "
+          >Folder</DropdownOption
+        >
+      </Dropdown>
+      <div
+        class="dashboard-view__create-folder--button dropdown-create-folder"
+        @click="showDropdown($event)"
+      >
+        <fa :icon="['fas', 'plus']" class="dropdown-create-folder" />
+        <p class="dropdown-create-folder">Create</p>
+        <fa
+          :icon="['fas', 'chevron-down']"
+          class="dashboard-view__header--buttons__down-arrow--icon dropdown-create-folder"
+        />
+      </div>
+      <Dropdown
+        :customClass="'dropdown-create-folder'"
+        :style="{ marginTop: '38px', marginLeft: '140px' }"
+      >
+        <DropdownOption :icon="['fas', 'folder-plus']">Folder</DropdownOption>
+        <DropdownOption :icon="['fas', 'folder-open']"
+          >Public Folder</DropdownOption
+        >
+      </Dropdown>
+    </div>
+  </header>
+  <DataWrapper :data="$store.state.notNestedFiles"></DataWrapper>
+  <FilesActionStatus
+    :status="filesStatus"
+    :numberOfFilesToUpload="filesToUpload"
+    :numberOfUploadedFiles="uploadedFiles"
+  ></FilesActionStatus>
+  <div class="message-box"></div>
+  <Modal :title="'Create folder'">
+    <p>Name</p>
+    <input type="text" />
+    <p>Location</p>
+    <v-select
+      :filter="fuseSearch"
+      :options="books"
+      :get-option-label="(option) => option.title"
+    >
+      <template #option="{ author, title }">
+        {{ title }}
+        <br />
+        <cite>{{ author.firstName }} {{ author.lastName }}</cite>
+      </template>
+    </v-select>
+  </Modal>
+</template>
+
+<script>
+import Resumable from "resumablejs";
+import axios from "axios";
+import Fuse from "fuse.js";
+
+import Dropdown from "@/components/dropdown/dropdown.vue";
+import DropdownOption from "@/components/dropdown/dropdownOption";
+import DataWrapper from "@/components/dataWrapper";
+import FilesActionStatus from "@/components/filesActionStatus.vue";
+import Modal from "@/components/modals/modal.vue";
+
+import fetchData from "@/utils/fetchData";
+import config from "@/config.json";
+
+export default {
+  components: {
+    Dropdown,
+    DropdownOption,
+    DataWrapper,
+    FilesActionStatus,
+    Modal,
+  },
+  data() {
+    return {
+      resumable: null,
+      filesStatus: null,
+      filesToUpload: 0,
+      uploadedFiles: 0,
+      lastFileAdedIndex: 0,
+      uploadedFilesFromGroup: 0,
+      filesGroup: [],
+      input: "file",
+    };
+  },
+  mounted() {
+    this.resumable = new Resumable({
+      target: `${config.BASE_URL}/upload`,
+      testChunks: false,
+      chunkSize: 4 * 1024 * 1024,
+      simultaneousUploads: 5,
+      maxChunkRetries: 5,
+      maxFileSize: Infinity,
+      minFileSize: 0,
+      withCredentials: true,
+    });
+    this.resumable.on("fileError", (file) => {
+      console.error("Error uploading " + file.file.name);
+      this.filesStatus = "error";
+    });
+
+    this.resumable.on("fileSuccess", () => {
+      fetchData();
+      this.uploadedFiles++;
+      if (this.uploadedFiles === this.filesToUpload) {
+        this.filesStatus = "success";
+        this.resumable.files = [];
+        this.filesGroup = [];
+        this.lastFileAdedIndex = 0;
+        this.uploadedFilesFromGroup = 0;
+      }
+
+      if (this.filesStatus !== "error") {
+        this.uploadedFilesFromGroup++;
+
+        //verify when a files group was added and reset the variables
+        if (this.uploadedFilesFromGroup === this.filesGroup.length) {
+          this.uploadedFilesFromGroup = 0;
+          this.filesGroup = [];
+          this.resumable.files = [];
+          //call the function again to create another files group if the file group was uploaded and there are still fikes to upload
+          if (this.uploadFiles !== this.filesToUpload) {
+            this.uploadFiles();
+          }
+        }
+      }
+    });
+
+    this.resumable.on("fileProgress", () => {
+      this.filesStatus = "uploading";
+    });
+  },
+  methods: {
+    fuseSearch(options, search) {
+      const fuse = new Fuse(options, {
+        keys: ["title", "author.firstName", "author.lastName"],
+        shouldSort: true,
+      });
+      return search.length
+        ? fuse.search(search).map(({ item }) => item)
+        : fuse.list;
+    },
+
+    createFolder(isPublic) {
+      axios.post(
+        `${config.BASE_URL}/create-folder`,
+        { withCredentials: true },
+        {
+          isPublic: isPublic,
+        }
+      );
+    },
+
+    uploadFilesBtn() {
+      if (this.filesStatus !== "uploading") {
+        const fileInput = document.querySelector(".upload-file input");
+        this.reinitializeVariablesFileStatus();
+        fileInput.click();
+      } else {
+        this.showMessage("Uploading in progress. Please wait...");
+      }
+    },
+
+    uploadFoldersBtn() {
+      if (this.filesStatus !== "uploading") {
+        const foldersInput = document.querySelector(".upload-folder input");
+        this.reinitializeVariablesFileStatus();
+        foldersInput.click();
+      } else {
+        this.showMessage("Uploading in progress. Please wait...");
+      }
+    },
+
+    reinitializeVariablesFileStatus() {
+      this.filesStatus = null;
+      this.uploadedFiles = 0;
+      this.filesToUpload = 0;
+    },
+
+    showMessage(message) {
+      const messageBox = document.querySelector(".message-box");
+      messageBox.innerHTML = message;
+      messageBox.classList.remove("hide-message");
+      messageBox.classList.add("show-message");
+      setTimeout(() => {
+        messageBox.classList.remove("show-message");
+        messageBox.classList.add("hide-message");
+      }, 3000);
+    },
+
+    uploadFiles() {
+      let fileGroupSize = 0;
+      const files = Array.from(
+        document.querySelector(`.upload-${this.input} input`).files
+      );
+      this.filesToUpload = files.length;
+      //create files group to prevent using too much memory
+      for (let i = this.lastFileAdedIndex; i < files.length; i++) {
+        //calculate the file group size
+        fileGroupSize += files[i].size;
+        ///add the file to the array
+        this.filesGroup.push(files[i]);
+        //if the files group memory exeed 100 mb update the last file index that was added
+        if (fileGroupSize / 1048576 >= 100 || i + 1 == files.length) {
+          this.lastFileAdedIndex = i + 1;
+          break;
+        }
+      }
+      //add the files to resumable
+      this.resumable.addFiles(this.filesGroup);
+      this.resumable.opts.headers = {
+        NumberOfFiles: this.filesToUpload,
+      };
+      //upload the files
+      setTimeout(() => {
+        this.resumable.upload();
+      }, 500);
+    },
+
+    showDropdown(event) {
+      const dropdowns = document.querySelectorAll(".dropdown");
+      dropdowns.forEach((dropdown) => {
+        dropdown.classList.add("hidden");
+        if (event.target.classList.contains(dropdown.classList[0]))
+          setTimeout(() => {
+            dropdown.classList.remove("hidden");
+          }, 100);
+      });
+    },
+  },
+};
+</script>
+
+<style scoped>
+.message-box {
+  display: block;
+  position: absolute;
+  padding: 10px;
+  margin-left: 15px;
+  bottom: -200px;
+  background-color: #1e1f1e;
+  border-radius: 10px;
+  color: #f5f4f5;
+  animation-duration: 0.5s;
+  animation-timing-function: ease-in-out forwards;
+  z-index: 1;
+}
+
+.show-message {
+  bottom: 20px;
+  animation-name: slideUp;
+}
+
+.hide-message {
+  animation-name: slideDown;
+}
+
+@keyframes slideUp {
+  from {
+    bottom: 0;
+    opacity: 0;
+  }
+  to {
+    bottom: 20px;
+    opacity: 1;
+  }
+}
+
+@keyframes slideDown {
+  from {
+    bottom: 20px;
+    opacity: 1;
+  }
+  to {
+    bottom: 0;
+    opacity: 0;
+  }
+}
+
+/*---------------Dashboard header------------------*/
+
+.dashboard-view__header {
+  padding: 25px;
+  background-color: #f7f8fb;
+}
+
+.dashboard-view__header > h1 {
+  color: #333343;
+  font-size: 35px;
+}
+
+.dashboard-view__header--buttons {
+  margin-top: 10px;
+  margin-bottom: 10px;
+  display: flex;
+}
+
+/* header buttons */
+
+.dashboard-view__upload-asets--button,
+.dashboard-view__create-folder--button {
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+  font-size: 17px;
+  border-radius: 10px;
+  border: none;
+  padding: 5px 10px;
+  background-color: #4b59fb;
+  color: #f7f8fb;
+  user-select: none;
+}
+
+.dashboard-view__upload-asets--button p,
+.dashboard-view__create-folder--button p {
+  margin: 0 10px;
+}
+
+.dashboard-view__header--buttons__down-arrow--icon {
+  font-size: 15px;
+}
+
+.dashboard-view__create-folder--button {
+  margin-left: 10px;
+  background-color: #f7f8fb;
+  color: #464141;
+  border: 2px solid #4b59fb;
+}
+
+.dashboard-view__create-folder--button p {
+  color: #141323;
+}
+</style>
