@@ -76,7 +76,10 @@
     :numberOfFilesToUpload="filesToUpload"
     :numberOfUploadedFiles="uploadedFiles"
   ></FilesActionStatus>
-  <div class="message-box"></div>
+  <MessageBox
+    ref="MessageBox"
+    :style="{ marginLeft: '15px', bottom: '20px' }"
+  ></MessageBox>
   <Modal
     :title="'Create folder'"
     :customClass="'modal-create-folder'"
@@ -99,12 +102,14 @@ import Resumable from "resumablejs";
 import Dropdown from "@/components/dropdown/dropdown.vue";
 import DropdownOption from "@/components/dropdown/dropdownOption";
 import DataWrapper from "@/components/dataWrapper";
-import FilesActionStatus from "@/components/filesActionStatus.vue";
+import FilesActionStatus from "@/components/notifications/filesActionStatus.vue";
 import Modal from "@/components/modal/modal.vue";
 import CreatePrivateFolder from "@/components/modal/modalContent/createPrivateFolder.vue";
 import CreatePublicFolder from "@/components/modal/modalContent/createPublicFolder.vue";
+import MessageBox from "@/components/notifications/messageBox.vue";
 
 import fetchData from "@/utils/fetchData";
+import resetData from "@/utils/resetData";
 import config from "@/config.json";
 
 export default {
@@ -116,6 +121,7 @@ export default {
     Modal,
     CreatePrivateFolder,
     CreatePublicFolder,
+    MessageBox,
   },
   data() {
     return {
@@ -134,7 +140,7 @@ export default {
       target: `${config.BASE_URL}/upload`,
       testChunks: false,
       chunkSize: 4 * 1024 * 1024,
-      simultaneousUploads: 5,
+      simultaneousUploads: 1,
       maxChunkRetries: 5,
       maxFileSize: Infinity,
       minFileSize: 0,
@@ -154,6 +160,7 @@ export default {
         this.filesGroup = [];
         this.lastFileAdedIndex = 0;
         this.uploadedFilesFromGroup = 0;
+        resetData();
       }
 
       if (this.filesStatus !== "error") {
@@ -180,6 +187,7 @@ export default {
     hideModalTrigger() {
       console.log();
       this.$refs.Modal.hideModal();
+      this.$refs.MessageBox.showMessage("Folder created successfully");
     },
     uploadFilesBtn() {
       if (this.filesStatus !== "uploading") {
@@ -187,7 +195,9 @@ export default {
         this.reinitializeVariablesFileStatus();
         fileInput.click();
       } else {
-        this.showMessage("Uploading in progress. Please wait...");
+        this.$refs.MessageBox.showMessage(
+          "Uploading in progress. Please wait..."
+        );
       }
     },
 
@@ -197,7 +207,9 @@ export default {
         this.reinitializeVariablesFileStatus();
         foldersInput.click();
       } else {
-        this.showMessage("Uploading in progress. Please wait...");
+        this.$refs.MessageBox.showMessage(
+          "Uploading in progress. Please wait..."
+        );
       }
     },
 
@@ -234,17 +246,6 @@ export default {
       setTimeout(() => {
         this.resumable.upload();
       }, 500);
-    },
-
-    showMessage(message) {
-      const messageBox = document.querySelector(".message-box");
-      messageBox.innerHTML = message;
-      messageBox.classList.remove("hide-message");
-      messageBox.classList.add("show-message");
-      setTimeout(() => {
-        messageBox.classList.remove("show-message");
-        messageBox.classList.add("hide-message");
-      }, 3000);
     },
 
     showModal(event) {
@@ -325,52 +326,5 @@ export default {
 
 .dashboard-view__create-folder--button p {
   color: #141323;
-}
-
-/*---------------Message Box------------------*/
-
-.message-box {
-  display: block;
-  position: absolute;
-  padding: 10px;
-  margin-left: 15px;
-  bottom: -200px;
-  background-color: #1e1f1e;
-  border-radius: 10px;
-  color: #f5f4f5;
-  animation-duration: 0.5s;
-  animation-timing-function: ease-in-out forwards;
-  z-index: 1;
-}
-
-.show-message {
-  bottom: 20px;
-  animation-name: slideUp;
-}
-
-.hide-message {
-  animation-name: slideDown;
-}
-
-@keyframes slideUp {
-  from {
-    bottom: 0;
-    opacity: 0;
-  }
-  to {
-    bottom: 20px;
-    opacity: 1;
-  }
-}
-
-@keyframes slideDown {
-  from {
-    bottom: 20px;
-    opacity: 1;
-  }
-  to {
-    bottom: 0;
-    opacity: 0;
-  }
 }
 </style>

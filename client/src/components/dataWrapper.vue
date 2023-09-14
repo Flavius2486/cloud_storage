@@ -190,7 +190,7 @@
       </tr>
       <tr
         class="file--list file"
-        v-for="(file, index) in data"
+        v-for="(file, index) in dataCopy"
         :key="index"
         @mouseenter="showfileCheckbox(index)"
         @mouseleave="hidefileCheckbox(index)"
@@ -352,7 +352,6 @@ export default {
   },
   methods: {
     showDropdown(event, index) {
-      console.log(this);
       const files = document.querySelectorAll(".file");
       const dropdowns = document.querySelectorAll(".dropdown");
 
@@ -396,7 +395,7 @@ export default {
       if (this.selectedfileType.type !== "all") {
         //return only the files that has the specified type
         this.dataCopy = this.data.filter((file) => {
-          if (this.filesTypes[index].type === file.type) return true;
+          return this.filesTypes[index].type === file.type;
         });
       } else {
         //return all the files
