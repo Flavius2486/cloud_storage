@@ -3,6 +3,7 @@ import { createStore } from "vuex";
 export default createStore({
   state: {
     isAuthenticated: false,
+    dataReceived: false,
     rootData: [],
     nestedData: [],
     deletedData: [],
@@ -22,6 +23,9 @@ export default createStore({
       state.recentData = data.data.recentData;
       state.publicData = data.data.publicData;
       state.starredData = data.data.starredData;
+    },
+    setDataStatus(state, data) {
+      state.dataReceived = data.state;
     },
   },
   actions: {},

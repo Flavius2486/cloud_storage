@@ -102,7 +102,7 @@
           </div>
         </div>
       </div>
-      <div class="files-container-table-format">
+      <div class="files-container-table-format" v-if="data.length > 0">
         <div
           v-for="(file, index) in dataCopy"
           :key="index"
@@ -123,7 +123,10 @@
           <div class="file-options-btn-container">
             <div
               class="file-options-btn file-dropdown file-options--dropdown"
-              @click="showDropdown($event, index)"
+              @click="
+                showDropdown($event, index),
+                  (dataObjOpenedOptions = dataCopy[index])
+              "
             >
               <fa :icon="['fas', 'ellipsis']" class="file-options--dropdown" />
             </div>
@@ -217,7 +220,10 @@
           <div class="file-options-btn-container">
             <div
               class="file-options-btn file-dropdown file-options--dropdown"
-              @click="showDropdown($event, index)"
+              @click="
+                showDropdown($event, index),
+                  (dataObjOpenedOptions = dataCopy[index])
+              "
             >
               <fa :icon="['fas', 'ellipsis']" class="file-options--dropdown" />
             </div>
@@ -225,38 +231,74 @@
         </th>
       </tr>
     </table>
-    <Dropdown
-      :customClass="'file-options--dropdown'"
-      :style="{
-        marginTop: '0px',
-        marginLeft: '0px',
-      }"
-    >
-      <div
-        v-for="(option, index) in filesOptions"
-        :key="index"
-        class="dropdown-option-for"
-      >
-        <DropdownOption
-          :style="{ fontSize: '13px' }"
-          :icon="option.icon"
-          v-if="selectedfileType.text !== option.text"
-        >
-          {{ option.text }}
-        </DropdownOption>
-      </div>
-    </Dropdown>
   </main>
+  <Dropdown
+    :customClass="'file-options--dropdown'"
+    :style="{
+      marginTop: '0px',
+      marginLeft: '0px',
+    }"
+  >
+    <div
+      v-for="(option, index) in filesOptions"
+      :key="index"
+      class="dropdown-option-for"
+    >
+      <DropdownOption
+        @click="showModal(filesOptions[index].modalClassName)"
+        :style="{ fontSize: '13px' }"
+        :icon="option.icon"
+        v-if="selectedfileType.text !== option.text"
+      >
+        {{ option.text }}
+      </DropdownOption>
+    </div>
+  </Dropdown>
+  <Modal
+    :title="'Rename ' + dataObjOpenedOptions.type"
+    :customClass="'modal-rename-data'"
+    ref="Modal"
+  >
+    <RenameData
+      :data="dataObjOpenedOptions"
+      @hide-modal="hideModalTrigger"
+    ></RenameData>
+  </Modal>
+  <MessageBox
+    ref="MessageBox"
+    :style="{ marginLeft: '15px', bottom: '20px' }"
+  ></MessageBox>
+  <div
+    v-if="data.length == 0 && !$store.state.dataReceived"
+    class="receiving-data-status"
+  >
+    <Loader></Loader>
+  </div>
+  <div
+    v-if="$store.state.dataReceived && data.length == 0"
+    class="receiving-data-status"
+    style="font-size: 20px"
+  >
+    <h1>No data found</h1>
+  </div>
 </template>
 
 <script>
 import Dropdown from "@/components/dropdown/dropdown.vue";
 import DropdownOption from "@/components/dropdown/dropdownOption";
+import Loader from "@/components/loader.vue";
+import Modal from "@/components/modal/modal.vue";
+import RenameData from "@/components/modal/modalContent/renameData.vue";
+import MessageBox from "@/components/notifications/messageBox.vue";
 
 export default {
   components: {
     Dropdown,
     DropdownOption,
+    Loader,
+    Modal,
+    RenameData,
+    MessageBox,
   },
   props: {
     data: {
@@ -309,48 +351,63 @@ export default {
         {
           text: "Open",
           icon: ["fas", "folder-open"],
-          index: 0,
+          modalClassName: "modal-rename-data",
         },
         {
           text: "Rename",
           icon: ["fas", "pencil"],
-          index: 1,
+          modalClassName: "modal-rename-data",
         },
         {
           text: "Move",
           icon: ["fas", "arrow-right-to-bracket"],
-          index: 2,
+          modalClassName: "modal-rename-data",
         },
         {
           text: "Add to starred",
           icon: ["far", "star"],
-          index: 3,
+          modalClassName: "modal-rename-data",
         },
         {
           text: "Remove from starred",
           icon: ["fas", "star"],
-          index: 4,
+          modalClassName: "modal-rename-data",
         },
         {
           text: "Detalies",
           icon: ["fas", "circle-info"],
-          index: 5,
+          modalClassName: "modal-rename-data",
         },
         {
           text: "Download",
           icon: ["fas", "download"],
-          index: 6,
+          modalClassName: "modal-rename-data",
         },
         {
           text: "Delete",
           icon: ["far", "trash-can"],
-          index: 7,
+          modalClassName: "modal-rename-data",
         },
       ],
       dataCopy: this.data,
+      dataObjOpenedOptions: {},
     };
   },
   methods: {
+    hideModalTrigger(response) {
+      this.$refs.Modal.hideModal();
+      this.$refs.MessageBox.showMessage(response.message);
+    },
+    showModal(modalClassName) {
+      const modals = document.querySelectorAll(".modal");
+      const overlay = document.querySelector(".overlay");
+      modals.forEach((modal) => {
+        if (modalClassName === modal.classList[0]) {
+          modal.classList.remove("hidden");
+          overlay.classList.remove("hidden");
+        }
+      });
+    },
     showDropdown(event, index) {
       const files = document.querySelectorAll(".file");
       const dropdowns = document.querySelectorAll(".dropdown");
@@ -556,6 +613,15 @@ export default {
 <style>
 body {
   overflow: hidden;
+}
+
+.receiving-data-status {
+  display: grid;
+  place-items: center;
+  height: 55%;
+  width: 100%;
+  overflow: hidden;
+  color: #19172e;
 }
 
 .content {

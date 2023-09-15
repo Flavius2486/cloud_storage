@@ -120,4 +120,8 @@ export default {
 ::-webkit-scrollbar-thumb:hover {
   background-color: #a9a9a9;
 }
+
+input:focus {
+  outline-width: 0;
+}
 </style>

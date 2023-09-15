@@ -1,10 +1,9 @@
 <template>
-  <p class="modal-error">Fill all the fields</p>
   <div>
     <p class="modal-subtitle">Name</p>
     <input
       type="text"
-      class="private-folder-name-input"
+      class="private-folder-name-input input-field"
       @change="hideError()"
     />
   </div>
@@ -12,20 +11,23 @@
     <p class="modal-subtitle">Location</p>
     <v-select
       :options="$store.state.folders"
-      class="private-folder-path-selector"
+      class="private-folder-path-selector selector"
       label="frontend_path"
       value="unique_path"
       v-model="selectedPrivateFolderPath"
     >
     </v-select>
   </div>
-  <div class="create-private-folder-btn" @click="createFolder()">Create</div>
+  <div class="create-private-folder-btn modal-btn" @click="createFolder()">
+    Create
+  </div>
 </template>
 
 <script>
 import axios from "axios";
 import fetchData from "@/utils/fetchData";
 import config from "@/config.json";
+import "@/components/modal/modalContent/style.css";
 
 export default {
   name: "create-private-folder",
@@ -46,7 +48,6 @@ export default {
       const folderNameInput = document.querySelector(
         ".private-folder-name-input"
       );
-      const modalError = document.querySelector(".modal-error");
       const folderPathInput = document.querySelector(
         ".private-folder-path-selector"
       );
@@ -56,7 +57,6 @@ export default {
         folderName.length === 0 ||
         this.selectedPrivateFolderPath.length === 0
       ) {
-        modalError.style.color = "red";
         if (folderName.length === 0) {
           folderNameInput.style.borderColor = "red";
         }
@@ -76,9 +76,10 @@ export default {
             ),
           })
           .then(() => {
-            modalError.style.color = "transparent";
             fetchData();
-            this.$emit("hide-modal");
+            this.$emit("hide-modal", {
+              message: "Folder created successfully",
+            });
           })
           .catch((err) => {
             console.log(err);
@@ -97,54 +98,3 @@ export default {
   },
 };
 </script>
-
-<style>
-.private-folder-path-selector {
-  min-width: 200px;
-  width: 100%;
-  border: 1px solid transparent;
-  border-radius: 5px;
-}
-
-.private-folder-name-input {
-  height: 32px;
-  min-width: 200px;
-  width: 100%;
-  border-radius: 5px;
-  border: 1px solid rgb(205, 205, 214);
-  margin-bottom: 5px;
-  padding: 7px;
-  font-size: 16px;
-}
-
-.modal-subtitle {
-  font-size: 15px;
-}
-
-.private-folder-name-input:focus {
-  outline-width: 0;
-}
-
-.create-private-folder-btn {
-  width: 100%;
-  height: 30px;
-  background-color: #5a93ed;
-  color: white;
-  margin-top: 10px;
-  border-radius: 4px;
-  display: grid;
-  place-items: center;
-  user-select: none;
-}
-
-.create-private-folder-btn:hover {
-  background-color: #3878e0;
-}
-
-.modal-error {
-  font-size: 15px;
-  color: transparent;
-  margin: 0;
-  padding: 0;
-}
-</style>

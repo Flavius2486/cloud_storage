@@ -522,7 +522,6 @@ const upload = multer({ storage: storage });
 app.post("/upload", upload.array("file"), (req, res) => {
   //verify if any of the files got all the chunks
   (async () => {
-    let promises = [];
     for (let i = 0; i < filesArray.length; i++) {
       //if the array chunks has the length of the resumabel total chunks add the file in the database and on th disk storage
       let missingChunks = false;
@@ -574,10 +573,7 @@ app.post("/upload", upload.array("file"), (req, res) => {
               ? filesArray[i].uniquePath.join("/")
               : "";
 
-          const promise = combineChunks(
-            filesArray[i].chunks,
-            filesArray[i].uniqueName
-          )
+          await combineChunks(filesArray[i].chunks, filesArray[i].uniqueName)
             .then(() => {
               //delete the added file
               storeData(filesArray[i], "file");
@@ -640,8 +636,6 @@ app.post("/upload", upload.array("file"), (req, res) => {
             .catch((error) => {
               console.error("Error combining chunks:", error);
             });
-          promises.push(promise);
-          await Promise.all(promises);
         } else {
           return res.status(401).json({ error: "Unauthorized user" });
         }
@@ -726,6 +720,10 @@ app.get("/fetch-data", (req, res) => {
         let deletedData = [];
         let folders = [];
         let rootData = [];
+        let dataFound = false;
+        if (result.length > 0) {
+          dataFound = true;
+        }
 
         folders[0] = {
           frontend_path: "/",
@@ -769,6 +767,7 @@ app.get("/fetch-data", (req, res) => {
           }
         });
         res.json({
+          dataFound: dataFound,
           rootData: rootData,
           folders: folders,
           deletedData: deletedData,
@@ -781,9 +780,34 @@ app.get("/fetch-data", (req, res) => {
   }
 });
 
-// app.get("/upload", (req, res) => {
-//   res.json(true);
-// });
+/*---------------------------------------------------------*\
+                Data options endpoints
+/*---------------------------------------------------------*/
+
+//rename data
+
+app.post("/rename-data", (req, res) => {
+  const { newName, uniqueName } = req.body;
+  const user = getUser(req.cookies);
+  if (user) {
+    if (newName.length === 0) {
+      res.json({ message: "Data name cannot be empty" });
+    } else {
+      database.query(
+        "UPDATE data SET name = ? WHERE user_username = ? AND unique_identifier = ?",
+        [newName, user.username, uniqueName],
+        (err) => {
+          if (err) {
+            throw err;
+          }
+          res.json({ message: "Name changed succesfully" });
+        }
+      );
+    }
+  } else {
+    res.json({ message: "Unauthorized user" });
+  }
+});
 
 app.listen(3002, () => {
   console.log("Server listening on port 3002");

@@ -6,6 +6,7 @@ const fetchData = () => {
   axios
     .get(`${config.BASE_URL}/fetch-data`, { withCredentials: true })
     .then((response) => {
+      store.commit("setDataStatus", { state: true });
       store.commit("setData", {
         data: {
           rootData: response.data.rootData,

@@ -85,14 +85,14 @@
     :customClass="'modal-create-folder'"
     ref="Modal"
   >
-    <CreatePrivateFolder @hide-modal="hideModalTrigger()"></CreatePrivateFolder>
+    <CreatePrivateFolder @hide-modal="hideModalTrigger"></CreatePrivateFolder>
   </Modal>
   <Modal
     :title="'Create public folder'"
     :customClass="'modal-create-public-folder'"
     ref="Modal"
   >
-    <CreatePublicFolder @hide-modal="hideModalTrigger()"></CreatePublicFolder>
+    <CreatePublicFolder @hide-modal="hideModalTrigger"></CreatePublicFolder>
   </Modal>
 </template>
 
@@ -184,10 +184,9 @@ export default {
     });
   },
   methods: {
-    hideModalTrigger() {
-      console.log();
+    hideModalTrigger(response) {
       this.$refs.Modal.hideModal();
-      this.$refs.MessageBox.showMessage("Folder created successfully");
+      this.$refs.MessageBox.showMessage(response.message);
     },
     uploadFilesBtn() {
       if (this.filesStatus !== "uploading") {
