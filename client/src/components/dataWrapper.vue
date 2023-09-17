@@ -264,6 +264,16 @@
       @hide-modal="hideModalTrigger"
     ></RenameData>
   </Modal>
+  <Modal
+    :title="'Move ' + dataObjOpenedOptions.type"
+    :customClass="'modal-move-data'"
+    ref="Modal"
+  >
+    <MoveData
+      :data="dataObjOpenedOptions"
+      @hide-modal="hideModalTrigger"
+    ></MoveData>
+  </Modal>
   <MessageBox
     ref="MessageBox"
     :style="{ marginLeft: '15px', bottom: '20px' }"
@@ -289,6 +299,7 @@ import DropdownOption from "@/components/dropdown/dropdownOption";
 import Loader from "@/components/loader.vue";
 import Modal from "@/components/modal/modal.vue";
 import RenameData from "@/components/modal/modalContent/renameData.vue";
+import MoveData from "@/components/modal/modalContent/moveData.vue";
 import MessageBox from "@/components/notifications/messageBox.vue";
 
 export default {
@@ -299,6 +310,7 @@ export default {
     Modal,
     RenameData,
     MessageBox,
+    MoveData,
   },
   props: {
     data: {
@@ -351,7 +363,7 @@ export default {
         {
           text: "Open",
           icon: ["fas", "folder-open"],
-          modalClassName: "modal-rename-data",
+          modalClassName: "",
         },
         {
           text: "Rename",
@@ -361,7 +373,7 @@ export default {
         {
           text: "Move",
           icon: ["fas", "arrow-right-to-bracket"],
-          modalClassName: "modal-rename-data",
+          modalClassName: "modal-move-data",
         },
         {
           text: "Add to starred",

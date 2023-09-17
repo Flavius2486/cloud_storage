@@ -759,6 +759,8 @@ app.get("/fetch-data", (req, res) => {
               const uniquePath =
                 data.unique_path.length > 0 ? data.unique_path + "/" : "";
               const folder = {
+                unique_identifier: data.unique_identifier,
+                size: data.size,
                 frontend_path: "/" + frontendPath + data.name + "/",
                 unique_path: uniquePath + data.unique_identifier,
               };
@@ -784,7 +786,7 @@ app.get("/fetch-data", (req, res) => {
                 Data options endpoints
 /*---------------------------------------------------------*/
 
-//rename data
+/*----------------Set new name----------------*/
 
 app.post("/rename-data", (req, res) => {
   const { newName, uniqueName } = req.body;
@@ -800,12 +802,90 @@ app.post("/rename-data", (req, res) => {
           if (err) {
             throw err;
           }
-          res.json({ message: "Name changed succesfully" });
+          res.json({ message: "Name changed successfully" });
         }
       );
     }
   } else {
     res.json({ message: "Unauthorized user" });
+  }
+});
+
+/*----------------Set new path----------------*/
+
+app.post("/set-new-path", (req, res) => {
+  const user = getUser(req.cookies);
+  if (user) {
+    const { targetFolder, dataToMove } = req.body;
+    //select all data
+    database.query(
+      "SELECT * FROM data WHERE user_username=?",
+      [user.username],
+      (err, result) => {
+        if (err) throw err;
+        result.forEach((data, index) => {
+          //make an array with the folders from the path
+          let dataUniquePathArray = data.unique_path.split("/");
+          let dataFrontendPathArray = data.frontend_path.split("/");
+          //go trough the file/folder unique path
+          dataUniquePathArray.forEach((dataIdentifier, index) => {
+            //if a folder from the unique path matches the name of the file/folder remove all the elements from 0 to the index of the folder that matches the name
+            if (dataIdentifier === dataToMove.unique_identifier) {
+              dataUniquePathArray.splice(0, index);
+              dataFrontendPathArray.splice(0, index);
+              //put the path back together
+              dataFrontendPathArray = dataFrontendPathArray.join("/");
+              dataUniquePathArray = dataUniquePathArray.join("/");
+              database.query(
+                "UPDATE data set frontend_path = ?, unique_path = ? WHERE user_username = ? AND unique_identifier = ?",
+                [
+                  //when inserting put the new path at the begining and then cooect it with the modify one to set all the files an folders to the new path
+                  [targetFolder.frontend_path, dataFrontendPathArray].join("/"),
+                  [targetFolder.unique_path, dataUniquePathArray].join("/"),
+                  user.username,
+                  data.unique_identifier,
+                ],
+                (err) => {
+                  if (err) throw err;
+                }
+              );
+            }
+          });
+          if (result.length === index + 1) {
+            //move the folder/file to the chosen path
+            database.query(
+              "UPDATE data SET frontend_path = ?, unique_path = ? WHERE user_username = ? AND unique_identifier = ?",
+              [
+                targetFolder.frontend_path,
+                targetFolder.unique_path,
+                user.username,
+                dataToMove.unique_identifier,
+              ],
+              (err) => {
+                if (err) {
+                  throw err;
+                }
+                //uptdate the folder size
+                database.query(
+                  "UPDATE data SET size = ? WHERE user_username = ? AND unique_identifier = ?",
+                  [
+                    Number(targetFolder.size) + Number(dataToMove.size),
+                    user.username,
+                    targetFolder.unique_identifier,
+                  ],
+                  (err) => {
+                    if (err) throw err;
+                    res.json({ message: "Path changed successfully" });
+                  }
+                );
+              }
+            );
+          }
+        });
+      }
+    );
+  } else {
+    res.status(401).json({ message: "Unauthorized user" });
   }
 });
 

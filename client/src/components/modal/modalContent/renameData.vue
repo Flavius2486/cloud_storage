@@ -20,6 +20,7 @@ import "@/components/modal/modalContent/style.css";
 
 export default {
   name: "rename-data",
+  emits: ["hide-modal"],
   props: {
     data: {
       type: Object,
