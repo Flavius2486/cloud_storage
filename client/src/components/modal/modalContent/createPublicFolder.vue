@@ -72,11 +72,9 @@ export default {
               -1
             ),
           })
-          .then(() => {
+          .then((response) => {
             fetchData();
-            this.$emit("hide-modal", {
-              message: "Folder created successfully",
-            });
+            this.$emit("hide-modal", response.data);
           })
           .catch((err) => {
             console.log(err);

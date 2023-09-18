@@ -14,6 +14,7 @@ import sidebar from "@/components/sidebar/sidebar";
 import navbar from "@/components/navbar";
 import fetchData from "@/utils/fetchData";
 import refreshToken from "@/utils/refreshToken";
+import authoDeleteData from "@/utils/autoDeleteData";
 
 export default {
   name: "App",
@@ -41,6 +42,7 @@ export default {
   },
   created: function () {
     window.addEventListener("click", this.hideDropdowns);
+    authoDeleteData();
   },
   unmounted: function () {
     window.removeEventListener("click", this.hideDropdowns);

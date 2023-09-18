@@ -7,10 +7,10 @@
           @click="showDropdown($event)"
         >
           <fa
-            :icon="selectedfileType.icon"
+            :icon="selectedDataType.icon"
             class="file-type--dropdown file-type-dropdown-btn-icon"
           />
-          <h1 class="file-type--dropdown">{{ selectedfileType.text }}</h1>
+          <h1 class="file-type--dropdown">{{ selectedDataType.text }}</h1>
           <fa
             :icon="['fas', 'chevron-down']"
             class="file-type--dropdown file-type-dropdown-btn-icon"
@@ -21,13 +21,13 @@
           :style="{ marginTop: '0px', marginLeft: '0px' }"
         >
           <div
-            v-for="(option, index) in filesTypes"
+            v-for="(option, index) in dataTypes"
             :key="index"
             class="dropdown-option-for"
           >
             <DropdownOption
               :icon="option.icon"
-              v-if="selectedfileType.text !== option.text"
+              v-if="selectedDataType.text !== option.text"
               @click="setSelectedfileType(index)"
             >
               {{ option.text }}
@@ -245,10 +245,10 @@
       class="dropdown-option-for"
     >
       <DropdownOption
-        @click="showModal(filesOptions[index].modalClassName)"
+        @click="dataAction(filesOptions[index])"
         :style="{ fontSize: '13px' }"
         :icon="option.icon"
-        v-if="selectedfileType.text !== option.text"
+        v-if="selectedDataType.text !== option.text"
       >
         {{ option.text }}
       </DropdownOption>
@@ -294,6 +294,10 @@
 </template>
 
 <script>
+import fetchData from "@/utils/fetchData";
+import config from "@/config.json";
+import axios from "axios";
+
 import Dropdown from "@/components/dropdown/dropdown.vue";
 import DropdownOption from "@/components/dropdown/dropdownOption";
 import Loader from "@/components/loader.vue";
@@ -323,12 +327,12 @@ export default {
     return {
       filesSelection: false,
       tableFormat: false,
-      selectedfileType: {
+      selectedDataType: {
         icon: ["fas", "briefcase"],
         type: "all",
         text: "All",
       },
-      filesTypes: [
+      dataTypes: [
         {
           text: "All",
           type: "all",
@@ -364,41 +368,63 @@ export default {
           text: "Open",
           icon: ["fas", "folder-open"],
           modalClassName: "",
+          actionType: "modal",
+          action: () => {},
         },
         {
           text: "Rename",
           icon: ["fas", "pencil"],
           modalClassName: "modal-rename-data",
+          actionType: "modal",
+          action: () => {},
         },
         {
           text: "Move",
           icon: ["fas", "arrow-right-to-bracket"],
           modalClassName: "modal-move-data",
+          actionType: "modal",
+          action: () => {},
         },
         {
           text: "Add to starred",
           icon: ["far", "star"],
-          modalClassName: "modal-rename-data",
+          modalClassName: "",
+          actionType: "function",
+          action: () => {
+            this.starredData(true);
+          },
         },
         {
           text: "Remove from starred",
           icon: ["fas", "star"],
-          modalClassName: "modal-rename-data",
+          modalClassName: "",
+          actionType: "function",
+          action: () => {
+            this.starredData(false);
+          },
         },
         {
           text: "Detalies",
           icon: ["fas", "circle-info"],
-          modalClassName: "modal-rename-data",
+          modalClassName: "modal-data-detalies",
+          actionType: "modal",
+          action: () => {},
         },
         {
           text: "Download",
           icon: ["fas", "download"],
           modalClassName: "modal-rename-data",
+          actionType: "function",
+          action: () => {},
         },
         {
           text: "Delete",
           icon: ["far", "trash-can"],
           modalClassName: "modal-rename-data",
+          actionType: "function",
+          action: () => {
+            this.deleteData();
+          },
         },
       ],
       dataCopy: this.data,
@@ -408,8 +434,58 @@ export default {
   methods: {
     hideModalTrigger(response) {
       this.$refs.Modal.hideModal();
-      this.$refs.MessageBox.showMessage(response.message);
+      this.showMessageBox(response.message);
     },
+
+    showMessageBox(message) {
+      this.$refs.MessageBox.showMessage(message);
+    },
+
+    deleteData() {
+      axios
+        .post(
+          `${config.BASE_URL}/delete`,
+          {
+            data: this.dataObjOpenedOptions,
+          },
+          { withCredentials: true }
+        )
+        .then((response) => {
+          fetchData();
+          this.showMessageBox(response.data.message);
+        })
+        .catch((err) => {
+          console.log(err);
+        });
+    },
+
+    starredData(starred) {
+      axios
+        .post(
+          `${config.BASE_URL}/starred`,
+          {
+            starred: starred,
+            unique_identifier: this.dataObjOpenedOptions.unique_identifier,
+          },
+          { withCredentials: true }
+        )
+        .then((response) => {
+          fetchData();
+          this.showMessageBox(response.data.message);
+        })
+        .catch((err) => {
+          console.log(err);
+        });
+    },
+
+    dataAction(option) {
+      if (option.actionType === "function") {
+        option.action();
+      } else if (option.actionType === "modal") {
+        this.showModal(option.modalClassName);
+      }
+    },
+
     showModal(modalClassName) {
       const modals = document.querySelectorAll(".modal");
       const overlay = document.querySelector(".overlay");
@@ -460,11 +536,11 @@ export default {
     },
 
     setSelectedfileType(index) {
-      this.selectedfileType = this.filesTypes[index];
-      if (this.selectedfileType.type !== "all") {
+      this.selectedDataType = this.dataTypes[index];
+      if (this.selectedDataType.type !== "all") {
         //return only the files that has the specified type
         this.dataCopy = this.data.filter((file) => {
-          return this.filesTypes[index].type === file.type;
+          return this.dataTypes[index].type === file.type;
         });
       } else {
         //return all the files

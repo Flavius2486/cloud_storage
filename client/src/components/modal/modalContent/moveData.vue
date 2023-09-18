@@ -60,9 +60,9 @@ export default {
             },
             { withCredentials: true }
           )
-          .then(() => {
+          .then((response) => {
             fetchData();
-            this.$emit("hide-modal", { message: "Path changed succesfully." });
+            this.$emit("hide-modal", response.data);
           });
       }
     },

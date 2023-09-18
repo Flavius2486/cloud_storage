@@ -44,12 +44,9 @@ export default {
             },
             { withCredentials: true }
           )
-          .then(() => {
+          .then((response) => {
             fetchData();
-            this.$emit("hide-modal", {
-              message:
-                "The " + this.data.type + " name has been succesfully changed.",
-            });
+            this.$emit("hide-modal", response.data);
           });
       }
     },
