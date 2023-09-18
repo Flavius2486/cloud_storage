@@ -424,7 +424,7 @@ export default {
           show: true,
           dataBrackedNotation: "public",
           action: () => {
-            this.starredData(false);
+            this.publicData(true);
           },
         },
         {
@@ -436,7 +436,7 @@ export default {
           show: false,
           dataBrackedNotation: "public",
           action: () => {
-            this.starredData(false);
+            this.publicData(false);
           },
         },
         {
@@ -503,6 +503,25 @@ export default {
           i++;
         }
       }
+    },
+
+    publicData(isPublic) {
+      axios
+        .post(
+          `${config.BASE_URL}/public`,
+          {
+            isPublic: isPublic,
+            data: this.dataObjOpenedOptions,
+          },
+          { withCredentials: true }
+        )
+        .then((response) => {
+          fetchData();
+          this.showMessageBox(response.data.message);
+        })
+        .catch((err) => {
+          console.log(err);
+        });
     },
 
     deleteData() {

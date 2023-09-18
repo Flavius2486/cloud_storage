@@ -943,7 +943,7 @@ function deleteData(user, data) {
   });
 }
 
-function setDeletionDate(user, data) {
+async function setDeletionDate(user, data) {
   return new Promise((resolve, reject) => {
     let deletionDate = new Date();
     deletionDate.setDate(deletionDate.getDate() + 7);
@@ -979,92 +979,78 @@ app.post("/delete", (req, res) => {
   const user = getUser(req.cookies);
   if (user) {
     const { data } = req.body;
-    database.query(
-      "SELECT deletion_date FROM data WHERE user_username = ? AND unique_identifier = ?",
-      [user.username, data.unique_identifier],
-      (err, toDelete) => {
-        if (err) {
-          res.json({ message: "An error occurred" });
-          throw err;
-        } else {
-          if (toDelete.length > 0) {
-            if (toDelete[0].deletion_date === null) {
-              database.query(
-                "SELECT * FROM data WHERE user_username = ? AND deletion_date IS NULL",
-                [user.username],
-                (err, result) => {
-                  if (err) {
-                    res.json({ message: "An error occurred!" });
+    //select the
+    if (data.deletion_date === null) {
+      database.query(
+        "SELECT * FROM data WHERE user_username = ? AND deletion_date IS NULL",
+        [user.username],
+        (err, result) => {
+          if (err) {
+            res.json({ message: "An error occurred!" });
+            throw err;
+          } else {
+            result.forEach((resultData) => {
+              if (
+                resultData.unique_path
+                  .split("/")
+                  .includes(data.unique_identifier)
+              ) {
+                setDeletionDate(user, resultData)
+                  .then(() => {})
+                  .catch((err) => {
                     throw err;
-                  } else {
-                    Array.from(result).forEach((resultData) => {
-                      if (
-                        resultData.unique_path
-                          .split("/")
-                          .includes(data.unique_identifier)
-                      ) {
-                        setDeletionDate(user, resultData)
-                          .then(() => {})
-                          .catch((err) => {
-                            throw err;
-                          });
-                      }
-                    });
-                    setDeletionDate(user, data)
-                      .then(() => {
-                        res.json({ message: "Data moved to bin!" });
-                      })
+                  });
+              }
+            });
+            setDeletionDate(user, data)
+              .then(() => {
+                res.json({ message: "Data moved to bin!" });
+              })
+              .catch((err) => {
+                res.json({ message: "An error occured!" });
+                throw err;
+              });
+          }
+        }
+      );
+    } else {
+      if (data.type === "folder") {
+        database.query(
+          "SELECT * FROM data WHERE user_username = ? AND deletion_date IS NOT NULL",
+          [user.username],
+          (err, result) => {
+            {
+              if (err) {
+                res.json({ message: "An error occurred!" });
+                throw err;
+              } else {
+                result.forEach((resultData) => {
+                  if (
+                    resultData.unique_path
+                      .split("/")
+                      .includes(data.unique_identifier)
+                  ) {
+                    deleteData(user, resultData)
+                      .then(() => {})
                       .catch((err) => {
-                        res.json({ message: "An error occured!" });
                         throw err;
                       });
                   }
-                }
-              );
-            } else {
-              if (data.type === "folder") {
-                database.query(
-                  "SELECT * FROM data WHERE user_username = ? AND deletion_date IS NOT NULL",
-                  [user.username],
-                  (err, result) => {
-                    {
-                      if (err) {
-                        res.json({ message: "An error occurred!" });
-                        throw err;
-                      } else {
-                        result.forEach((resultData) => {
-                          if (
-                            resultData.unique_path
-                              .split("/")
-                              .includes(data.unique_identifier)
-                          ) {
-                            deleteData(user, resultData)
-                              .then(() => {})
-                              .catch((err) => {
-                                throw err;
-                              });
-                          }
-                        });
-                      }
-                    }
-                  }
-                );
-              }
-              deleteData(user, data)
-                .then(() => {
-                  res.json({ message: "File deleted successfully!" });
-                })
-                .catch((err) => {
-                  console.error("An error occurred:", err);
-                  res.status(500).json({ message: "An error occurred!" });
                 });
+              }
             }
-          } else {
-            res.json({ message: "Data not found!" });
           }
-        }
+        );
       }
-    );
+      deleteData(user, data)
+        .then(() => {
+          res.json({ message: "File deleted successfully!" });
+        })
+        .catch((err) => {
+          console.error("An error occurred:", err);
+          res.status(500).json({ message: "An error occurred!" });
+        });
+    }
   } else {
     res.json({ message: "Unauthorized user!" });
   }
@@ -1092,6 +1078,75 @@ app.post("/auto-delete-data", (req, res) => {
     );
   } else {
     res.json({ message: "Unauthorized user." });
+  }
+});
+
+/*----------------Add data to public----------------*/
+/*----------------Remove data to public----------------*/
+
+async function updateDataPublicValue(user, data, isPublic) {
+  return new Promise((resolve, reject) => {
+    database.query(
+      "UPDATE data SET public = ? WHERE user_username = ? AND unique_identifier = ?",
+      [isPublic, user.username, data.unique_identifier],
+      (err) => {
+        if (err) {
+          reject();
+        } else {
+          resolve();
+        }
+      }
+    );
+  });
+}
+
+app.post("/public", (req, res) => {
+  const user = getUser(req.cookies);
+  if (user) {
+    const { isPublic, data } = req.body;
+    if (data.type === "folder") {
+      database.query(
+        "SELECT * FROM data WHERE user_username = ?",
+        [user.username],
+        (err, result) => {
+          if (err) {
+            if (isPublic) {
+              return res.json({ message: "Error moving data to public!" });
+            } else {
+              return res.json({ message: "Error removing data from public!" });
+            }
+          } else {
+            result.forEach((resultData) => {
+              if (
+                resultData.unique_path
+                  .split("/")
+                  .includes(data.unique_identifier)
+              ) {
+                updateDataPublicValue(user, resultData, isPublic).catch(
+                  (err) => {
+                    throw err;
+                  }
+                );
+              }
+            });
+          }
+        }
+      );
+    }
+    updateDataPublicValue(user, data, isPublic)
+      .then(() => {
+        res.json({ message: "Data moved succesfully!" });
+      })
+      .catch((err) => {
+        if (isPublic) {
+          res.json({ message: "Error moving data to public!" });
+        } else {
+          res.json({ message: "Error removing data from public!" });
+        }
+        throw err;
+      });
+  } else {
+    res.json({ message: "Unauthorized user!" });
   }
 });
 
