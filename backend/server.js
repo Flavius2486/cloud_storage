@@ -894,23 +894,63 @@ app.post("/set-new-path", (req, res) => {
 /*----------------Add to starred----------------*/
 /*----------------Remove from starred----------------*/
 
-app.post("/starred", (req, res) => {
-  const user = getUser(req.cookies);
-  if (user) {
-    const { starred, unique_identifier } = req.body;
+async function updateDataStarredStatus(user, data, starred) {
+  return new Promise((resolve, reject) => {
     database.query(
       "UPDATE data SET starred = ? WHERE user_username = ? and unique_identifier = ?",
-      [starred, user.username, unique_identifier],
+      [starred, user.username, data.unique_identifier],
       (err) => {
         if (err) {
-          res.json({ message: "An error has occured!" });
-        } else if (starred) {
-          res.json({ message: "Data added to starred" });
+          reject();
         } else {
-          res.json({ message: "Data removed from starred" });
+          resolve();
         }
       }
     );
+  });
+}
+
+app.post("/starred", (req, res) => {
+  const user = getUser(req.cookies);
+  if (user) {
+    const { starred, data } = req.body;
+    if (data.type === "folder") {
+      database.query(
+        "SELECT * FROM data WHERE user_username = ?",
+        [user.username],
+        (err, result) => {
+          if (err) {
+            response.json({ message: "An error occurred!" });
+            throw err;
+          } else {
+            result.forEach((resultData) => {
+              if (
+                resultData.unique_path
+                  .split("/")
+                  .includes(data.unique_identifier)
+              ) {
+                updateDataStarredStatus(user, resultData, starred).catch(
+                  (err) => {
+                    throw err;
+                  }
+                );
+              }
+            });
+          }
+        }
+      );
+    }
+    updateDataStarredStatus(user, data, starred)
+      .then(() => {
+        if (starred) {
+          res.json({ message: "Data added to starred!" });
+        } else {
+          res.json({ message: "Data removed from starred!" });
+        }
+      })
+      .catch((err) => {
+        throw err;
+      });
   }
 });
 
@@ -1084,7 +1124,7 @@ app.post("/auto-delete-data", (req, res) => {
 /*----------------Add data to public----------------*/
 /*----------------Remove data to public----------------*/
 
-async function updateDataPublicValue(user, data, isPublic) {
+async function updateDataPublicStatus(user, data, isPublic) {
   return new Promise((resolve, reject) => {
     database.query(
       "UPDATE data SET public = ? WHERE user_username = ? AND unique_identifier = ?",
@@ -1122,7 +1162,7 @@ app.post("/public", (req, res) => {
                   .split("/")
                   .includes(data.unique_identifier)
               ) {
-                updateDataPublicValue(user, resultData, isPublic).catch(
+                updateDataPublicStatus(user, resultData, isPublic).catch(
                   (err) => {
                     throw err;
                   }
@@ -1133,7 +1173,7 @@ app.post("/public", (req, res) => {
         }
       );
     }
-    updateDataPublicValue(user, data, isPublic)
+    updateDataPublicStatus(user, data, isPublic)
       .then(() => {
         res.json({ message: "Data moved succesfully!" });
       })

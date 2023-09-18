@@ -548,7 +548,7 @@ export default {
           `${config.BASE_URL}/starred`,
           {
             starred: starred,
-            unique_identifier: this.dataObjOpenedOptions.unique_identifier,
+            data: this.dataObjOpenedOptions,
           },
           { withCredentials: true }
         )
