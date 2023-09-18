@@ -915,6 +915,7 @@ app.post("/starred", (req, res) => {
 });
 
 /*----------------Move to bin----------------*/
+/*----------------Permanently delete----------------*/
 
 function deleteData(user, data) {
   return new Promise((resolve, reject) => {
@@ -1068,6 +1069,8 @@ app.post("/delete", (req, res) => {
     res.json({ message: "Unauthorized user!" });
   }
 });
+
+/*----------------Auto delete date----------------*/
 
 app.post("/auto-delete-data", (req, res) => {
   const user = getUser(req.cookies);

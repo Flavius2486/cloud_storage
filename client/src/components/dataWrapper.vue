@@ -124,8 +124,7 @@
             <div
               class="file-options-btn file-dropdown file-options--dropdown"
               @click="
-                showDropdown($event, index),
-                  (dataObjOpenedOptions = dataCopy[index])
+                setFileDropdownOptions(index), showDropdown($event, index)
               "
             >
               <fa :icon="['fas', 'ellipsis']" class="file-options--dropdown" />
@@ -221,8 +220,7 @@
             <div
               class="file-options-btn file-dropdown file-options--dropdown"
               @click="
-                showDropdown($event, index),
-                  (dataObjOpenedOptions = dataCopy[index])
+                setFileDropdownOptions(index), showDropdown($event, index)
               "
             >
               <fa :icon="['fas', 'ellipsis']" class="file-options--dropdown" />
@@ -248,7 +246,7 @@
         @click="dataAction(filesOptions[index])"
         :style="{ fontSize: '13px' }"
         :icon="option.icon"
-        v-if="selectedDataType.text !== option.text"
+        v-if="selectedDataType.text !== option.text && option.show"
       >
         {{ option.text }}
       </DropdownOption>
@@ -273,6 +271,9 @@
       :data="dataObjOpenedOptions"
       @hide-modal="hideModalTrigger"
     ></MoveData>
+  </Modal>
+  <Modal :title="'Detalies'" :customClass="'modal-data-detalies'" ref="Modal">
+    <DataDetalies :data="dataObjOpenedOptions"></DataDetalies>
   </Modal>
   <MessageBox
     ref="MessageBox"
@@ -304,6 +305,7 @@ import Loader from "@/components/loader.vue";
 import Modal from "@/components/modal/modal.vue";
 import RenameData from "@/components/modal/modalContent/renameData.vue";
 import MoveData from "@/components/modal/modalContent/moveData.vue";
+import DataDetalies from "./modal/modalContent/dataDetalies.vue";
 import MessageBox from "@/components/notifications/messageBox.vue";
 
 export default {
@@ -315,6 +317,7 @@ export default {
     RenameData,
     MessageBox,
     MoveData,
+    DataDetalies,
   },
   props: {
     data: {
@@ -369,6 +372,8 @@ export default {
           icon: ["fas", "folder-open"],
           modalClassName: "",
           actionType: "modal",
+          show: true,
+          dataBrackedNotation: "",
           action: () => {},
         },
         {
@@ -376,6 +381,8 @@ export default {
           icon: ["fas", "pencil"],
           modalClassName: "modal-rename-data",
           actionType: "modal",
+          show: true,
+          dataBrackedNotation: "",
           action: () => {},
         },
         {
@@ -383,6 +390,8 @@ export default {
           icon: ["fas", "arrow-right-to-bracket"],
           modalClassName: "modal-move-data",
           actionType: "modal",
+          show: true,
+          dataBrackedNotation: "",
           action: () => {},
         },
         {
@@ -390,6 +399,8 @@ export default {
           icon: ["far", "star"],
           modalClassName: "",
           actionType: "function",
+          show: true,
+          dataBrackedNotation: "starred",
           action: () => {
             this.starredData(true);
           },
@@ -399,6 +410,31 @@ export default {
           icon: ["fas", "star"],
           modalClassName: "",
           actionType: "function",
+          show: false,
+          dataBrackedNotation: "starred",
+          action: () => {
+            this.starredData(false);
+          },
+        },
+        {
+          text: "Move to public",
+          icon: ["fas", "users"],
+          modalClassName: "",
+          actionType: "function",
+          show: true,
+          dataBrackedNotation: "public",
+          action: () => {
+            this.starredData(false);
+          },
+        },
+        {
+          text: "Remove from public",
+          optionName: "public",
+          icon: ["fas", "users-slash"],
+          modalClassName: "",
+          actionType: "function",
+          show: false,
+          dataBrackedNotation: "public",
           action: () => {
             this.starredData(false);
           },
@@ -408,20 +444,26 @@ export default {
           icon: ["fas", "circle-info"],
           modalClassName: "modal-data-detalies",
           actionType: "modal",
+          show: true,
+          dataBrackedNotation: "",
           action: () => {},
         },
         {
           text: "Download",
           icon: ["fas", "download"],
-          modalClassName: "modal-rename-data",
+          modalClassName: "",
           actionType: "function",
+          show: true,
+          dataBrackedNotation: "",
           action: () => {},
         },
         {
           text: "Delete",
           icon: ["far", "trash-can"],
-          modalClassName: "modal-rename-data",
+          modalClassName: "",
           actionType: "function",
+          show: true,
+          dataBrackedNotation: "",
           action: () => {
             this.deleteData();
           },
@@ -434,11 +476,33 @@ export default {
   methods: {
     hideModalTrigger(response) {
       this.$refs.Modal.hideModal();
-      this.showMessageBox(response.message);
+      if (response.message) this.showMessageBox(response.message);
     },
 
     showMessageBox(message) {
       this.$refs.MessageBox.showMessage(message);
+    },
+
+    setFileDropdownOptions(index) {
+      this.dataObjOpenedOptions = this.dataCopy[index];
+      for (let i = 0; i < this.filesOptions.length; i++) {
+        if (
+          this.dataObjOpenedOptions[
+            this.filesOptions[i].dataBrackedNotation
+          ] !== undefined
+        ) {
+          if (
+            this.dataObjOpenedOptions[this.filesOptions[i].dataBrackedNotation]
+          ) {
+            this.filesOptions[i].show = false;
+            this.filesOptions[i + 1].show = true;
+          } else {
+            this.filesOptions[i].show = true;
+            this.filesOptions[i + 1].show = false;
+          }
+          i++;
+        }
+      }
     },
 
     deleteData() {
