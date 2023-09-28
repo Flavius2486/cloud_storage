@@ -111,6 +111,10 @@ function storeData(data, type) {
   }
 }
 
+function capitalizeFirstLetter(str) {
+  return str.charAt(0).toUpperCase() + str.slice(1);
+}
+
 /*---------------------------------------------------------*\
                   Authentication system
 /*---------------------------------------------------------*/
@@ -141,7 +145,7 @@ app.post("/refresh-token", (req, res) => {
         "DELETE FROM refresh_tokens WHERE token=?",
         [refreshToken],
         (err) => {
-          if (err) throw err;
+          if (err) console.log(err);
           //clear the cookies
           res.clearCookie("refreshToken");
           res.json({ auth: false });
@@ -151,7 +155,7 @@ app.post("/refresh-token", (req, res) => {
   } else {
     //select all tokens
     database.query("SELECT token FROM refresh_tokens", (err, tokens) => {
-      if (err) throw err;
+      if (err) console.log(err);
       //search the token
       searchRefreshToken(refreshToken).then((exists) => {
         if (exists) {
@@ -193,7 +197,7 @@ app.post("/logout", (req, res) => {
           "DELETE FROM refresh_tokens WHERE token=?",
           [token],
           (err) => {
-            if (err) throw err;
+            if (err) console.log(err);
             //clear the cookies
             res.clearCookie("refreshToken");
             res.clearCookie("accessToken");
@@ -219,10 +223,10 @@ app.post("/login", (req, res) => {
       "SELECT * FROM users WHERE email=? or username=?",
       [email_username, email_username],
       (err, data) => {
-        if (err) throw err;
+        if (err) console.log(err);
         if (data.length) {
           bcrypt.compare(password, data[0].password, (err, result) => {
-            if (err) throw err;
+            if (err) console.log(err);
             if (
               result &&
               (data[0].email === email_username ||
@@ -240,7 +244,7 @@ app.post("/login", (req, res) => {
                 "INSERT INTO refresh_tokens (token) VALUES(?)",
                 [refreshToken],
                 (err) => {
-                  if (err) throw err;
+                  if (err) console.log(err);
                 }
               );
 
@@ -449,9 +453,9 @@ async function combineChunks(chunkFilePaths, fileId) {
         resolve();
       });
 
-      // chunkStream.on("error", (error) => {
-      //   reject(error);
-      // });
+      chunkStream.on("error", (error) => {
+        reject(error);
+      });
     });
   }
   combinedStream.end(); // Close the combined file stream
@@ -650,7 +654,7 @@ app.post("/upload", upload.array("file"), (req, res) => {
     }
   })().catch((err) => {
     res.json({ message: "An error occured" });
-    throw err;
+    console.log(err);
   });
 });
 
@@ -710,7 +714,7 @@ app.get("/fetch-data", (req, res) => {
       "SELECT * FROM data WHERE user_username=?",
       [user.username],
       (err, result) => {
-        if (err) throw err;
+        if (err) console.log(err);
         const currentTime = new Date();
         const oneWeekMills = 7 * 24 * 60 * 60 * 1000;
 
@@ -737,20 +741,20 @@ app.get("/fetch-data", (req, res) => {
           if (data.deletion_date !== null) {
             deletedData.push(data);
           } else {
-            if (!data.starred) {
+            if (data.starred) {
               starredData.push(data);
             }
             if (data.public) {
               publicData.push(data);
             }
+            if (data.frontend_path === "" && !data.public) {
+              rootData.push(data);
+            }
             if (
-              currentTime.getTime() - fileLastAccessed.getTime() >
+              currentTime.getTime() - fileLastAccessed.getTime() <
               oneWeekMills
             ) {
               recentData.push(data);
-            }
-            if (data.frontend_path === "") {
-              rootData.push(data);
             }
             if (data.type === "folder") {
               const frontendPath =
@@ -767,6 +771,10 @@ app.get("/fetch-data", (req, res) => {
             }
           }
         });
+        publicData = filterData(publicData);
+        starredData = filterData(starredData);
+        recentData = filterData(recentData);
+        deletedData = filterData(deletedData);
         res.json({
           dataFound: dataFound,
           rootData: rootData,
@@ -781,6 +789,26 @@ app.get("/fetch-data", (req, res) => {
   }
 });
 
+function filterData(array) {
+  let result = [];
+  for (let i = 0; i < array.length; i++) {
+    let dataIsNested = false;
+    for (let j = 0; j < array.length; j++) {
+      if (i !== j) {
+        if (
+          array[i].unique_path.split("/").includes(array[j].unique_identifier)
+        ) {
+          dataIsNested = true;
+        }
+      }
+    }
+    if (dataIsNested === false) {
+      result.push(array[i]);
+    }
+  }
+  return result;
+}
+
 /*---------------------------------------------------------*\
                 Data options endpoints
 /*---------------------------------------------------------*/
@@ -788,21 +816,31 @@ app.get("/fetch-data", (req, res) => {
 /*----------------Set new name----------------*/
 
 app.post("/rename-data", (req, res) => {
-  const { newName, uniqueName } = req.body;
+  const { newName, data } = req.body;
   const user = getUser(req.cookies);
   if (user) {
     if (newName.length === 0) {
-      res.json({ message: "Data name cannot be empty" });
+      res.json({
+        message: `${capitalizeFirstLetter(data.type)} name cannot be empty!`,
+      });
     } else {
       database.query(
         "UPDATE data SET name = ? WHERE user_username = ? AND unique_identifier = ?",
-        [newName, user.username, uniqueName],
+        [newName, user.username, data.unique_identifier],
         (err) => {
           if (err) {
-            res.json({ message: "Error changing the name" });
-            throw err;
+            res.json({
+              message: `Error changing ${capitalizeFirstLetter(
+                data.type
+              )} name!`,
+            });
+            console.log(err);
           }
-          res.json({ message: "Name changed successfully" });
+          res.json({
+            message: `${capitalizeFirstLetter(
+              data.type
+            )} name changed succesfully!`,
+          });
         }
       );
     }
@@ -822,7 +860,7 @@ app.post("/set-new-path", (req, res) => {
       "SELECT * FROM data WHERE user_username=?",
       [user.username],
       (err, result) => {
-        if (err) throw err;
+        if (err) console.log(err);
         result.forEach((data, index) => {
           //make an array with the folders from the path
           let dataUniquePathArray = data.unique_path.split("/");
@@ -846,7 +884,7 @@ app.post("/set-new-path", (req, res) => {
                   data.unique_identifier,
                 ],
                 (err) => {
-                  if (err) throw err;
+                  if (err) console.log(err);
                 }
               );
             }
@@ -863,7 +901,7 @@ app.post("/set-new-path", (req, res) => {
               ],
               (err) => {
                 if (err) {
-                  throw err;
+                  console.log(err);
                 }
                 //uptdate the folder size
                 database.query(
@@ -876,8 +914,12 @@ app.post("/set-new-path", (req, res) => {
                     targetFolder.unique_identifier,
                   ],
                   (err) => {
-                    if (err) throw err;
-                    res.json({ message: "Path changed successfully" });
+                    if (err) console.log(err);
+                    res.json({
+                      message: `${capitalizeFirstLetter(
+                        dataToMove.type
+                      )} moved succesfully!`,
+                    });
                   }
                 );
               }
@@ -920,8 +962,8 @@ app.post("/starred", (req, res) => {
         [user.username],
         (err, result) => {
           if (err) {
-            response.json({ message: "An error occurred!" });
-            throw err;
+            console.log(err);
+            res.json({ message: "An error occurred!" });
           } else {
             result.forEach((resultData) => {
               if (
@@ -931,7 +973,7 @@ app.post("/starred", (req, res) => {
               ) {
                 updateDataStarredStatus(user, resultData, starred).catch(
                   (err) => {
-                    throw err;
+                    console.log(err);
                   }
                 );
               }
@@ -943,13 +985,19 @@ app.post("/starred", (req, res) => {
     updateDataStarredStatus(user, data, starred)
       .then(() => {
         if (starred) {
-          res.json({ message: "Data added to starred!" });
+          res.json({
+            message: `${capitalizeFirstLetter(data.type)} added to starred!`,
+          });
         } else {
-          res.json({ message: "Data removed from starred!" });
+          res.json({
+            message: `${capitalizeFirstLetter(
+              data.type
+            )} removed from starred!`,
+          });
         }
       })
       .catch((err) => {
-        throw err;
+        console.log(err);
       });
   }
 });
@@ -993,7 +1041,6 @@ async function setDeletionDate(user, data) {
       (err) => {
         if (err) {
           reject();
-          throw err;
         } else {
           resolve();
         }
@@ -1009,7 +1056,7 @@ async function processDeletions(result, user) {
       try {
         await deleteData(user, data);
       } catch (err) {
-        throw err;
+        console.log(err);
       }
     }
   }
@@ -1026,8 +1073,8 @@ app.post("/delete", (req, res) => {
         [user.username],
         (err, result) => {
           if (err) {
-            res.json({ message: "An error occurred!" });
-            throw err;
+            console.log(err);
+            return res.json({ message: "Error selecting data!" });
           } else {
             result.forEach((resultData) => {
               if (
@@ -1038,17 +1085,21 @@ app.post("/delete", (req, res) => {
                 setDeletionDate(user, resultData)
                   .then(() => {})
                   .catch((err) => {
-                    throw err;
+                    console.log(err);
                   });
               }
             });
             setDeletionDate(user, data)
               .then(() => {
-                res.json({ message: "Data moved to bin!" });
+                res.json({
+                  message: `${capitalizeFirstLetter(data.type)} moved to bin!`,
+                });
               })
               .catch((err) => {
-                res.json({ message: "An error occured!" });
-                throw err;
+                console.log(err);
+                return res.json({
+                  message: `Error moving ${data.type} to bin!`,
+                });
               });
           }
         }
@@ -1061,8 +1112,8 @@ app.post("/delete", (req, res) => {
           (err, result) => {
             {
               if (err) {
-                res.json({ message: "An error occurred!" });
-                throw err;
+                console.log(err);
+                res.json({ message: "Error selecting data!" });
               } else {
                 result.forEach((resultData) => {
                   if (
@@ -1070,11 +1121,12 @@ app.post("/delete", (req, res) => {
                       .split("/")
                       .includes(data.unique_identifier)
                   ) {
-                    deleteData(user, resultData)
-                      .then(() => {})
-                      .catch((err) => {
-                        throw err;
+                    deleteData(user, resultData).catch(() => {
+                      console.log(err);
+                      return res.json({
+                        message: `Error deleting the ${data.type}!`,
                       });
+                    });
                   }
                 });
               }
@@ -1084,11 +1136,14 @@ app.post("/delete", (req, res) => {
       }
       deleteData(user, data)
         .then(() => {
-          res.json({ message: "File deleted successfully!" });
+          res.json({
+            message: `${capitalizeFirstLetter(data.type)} deleted succesfully!`,
+          });
         })
         .catch((err) => {
-          console.error("An error occurred:", err);
-          res.status(500).json({ message: "An error occurred!" });
+          return res.json({
+            message: `Error deleting the ${data.type}!`,
+          });
         });
     }
   } else {
@@ -1105,19 +1160,19 @@ app.post("/auto-delete-data", (req, res) => {
       "SELECT * FROM data WHERE user_username = ? AND deletion_date IS NOT NULL",
       [user.username],
       (err, result) => {
-        if (err) throw err;
+        if (err) console.log(err);
         processDeletions(result, user)
           .then(() => {
             res.json({ message: "Data deleted successfully" });
           })
           .catch((err) => {
-            console.error("Error:", err);
+            console.error(err);
             res.json({ message: "An error occurred while deleting data" });
           });
       }
     );
   } else {
-    res.json({ message: "Unauthorized user." });
+    res.json({ message: "Unauthorized user!" });
   }
 });
 
@@ -1150,11 +1205,7 @@ app.post("/public", (req, res) => {
         [user.username],
         (err, result) => {
           if (err) {
-            if (isPublic) {
-              return res.json({ message: "Error moving data to public!" });
-            } else {
-              return res.json({ message: "Error removing data from public!" });
-            }
+            return res.json({ message: "Error selecting data!" });
           } else {
             result.forEach((resultData) => {
               if (
@@ -1164,7 +1215,7 @@ app.post("/public", (req, res) => {
               ) {
                 updateDataPublicStatus(user, resultData, isPublic).catch(
                   (err) => {
-                    throw err;
+                    console.log(err);
                   }
                 );
               }
@@ -1175,15 +1226,19 @@ app.post("/public", (req, res) => {
     }
     updateDataPublicStatus(user, data, isPublic)
       .then(() => {
-        res.json({ message: "Data moved succesfully!" });
+        if (isPublic) {
+          res.json({ message: `The ${data.type} has been made public` });
+        } else {
+          res.json({ message: `The ${data.type} has been made private` });
+        }
       })
       .catch((err) => {
         if (isPublic) {
-          res.json({ message: "Error moving data to public!" });
+          res.json({ message: `Error making ${data.type} public!` });
         } else {
-          res.json({ message: "Error removing data from public!" });
+          res.json({ message: `Error making ${data.type} private!` });
         }
-        throw err;
+        console.log(err);
       });
   } else {
     res.json({ message: "Unauthorized user!" });

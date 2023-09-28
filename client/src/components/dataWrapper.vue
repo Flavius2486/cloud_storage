@@ -418,7 +418,7 @@ export default {
         },
         {
           text: "Move to public",
-          icon: ["fas", "users"],
+          icon: ["fas", "users-slash"],
           modalClassName: "",
           actionType: "function",
           show: true,
@@ -430,7 +430,7 @@ export default {
         {
           text: "Remove from public",
           optionName: "public",
-          icon: ["fas", "users-slash"],
+          icon: ["fas", "users"],
           modalClassName: "",
           actionType: "function",
           show: false,

@@ -5,7 +5,6 @@
       class="data-new-name-input input-field"
       type="text"
       placeholder="Enter new name"
-      value="data.name"
     />
   </div>
   <div class="create-folder-btn modal-btn" @click="rename()">Rename</div>
@@ -40,7 +39,7 @@ export default {
             `${config.BASE_URL}/rename-data`,
             {
               newName: newNameInput.value,
-              uniqueName: this.data.unique_identifier,
+              data: this.data,
             },
             { withCredentials: true }
           )
