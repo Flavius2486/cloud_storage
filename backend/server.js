@@ -810,6 +810,47 @@ function filterData(array) {
 }
 
 /*---------------------------------------------------------*\
+               Get current folder data
+/*---------------------------------------------------------*/
+
+app.post("/folder-data", (req, res) => {
+  const user = getUser(req.cookies);
+  if (user) {
+    const { folderIdentifier } = req.body;
+    database.query(
+      "SELECT * FROM data WHERE user_username=?",
+      [user.username],
+      (err, result) => {
+        if (err) console.log(err);
+        let folderData;
+        result.forEach((data) => {
+          if (data.unique_identifier === folderIdentifier) {
+            folderData = data;
+          }
+        });
+        res.json({
+          folderContent: getDataFromFolder(result, folderIdentifier),
+          folderData: folderData,
+        });
+      }
+    );
+  }
+});
+
+function getDataFromFolder(data, folderIdentifier) {
+  const result = [];
+
+  for (const item of data) {
+    let uniquePath = item.unique_path.split("/");
+    if (uniquePath[uniquePath.length - 1] === folderIdentifier) {
+      result.push(item);
+    }
+  }
+
+  return result;
+}
+
+/*---------------------------------------------------------*\
                 Data options endpoints
 /*---------------------------------------------------------*/
 

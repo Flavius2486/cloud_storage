@@ -1,4 +1,7 @@
 <template>
+  <div class="starred-view__header">
+    <h1>Starred</h1>
+  </div>
   <DataWrapper :data="$store.state.starredData"></DataWrapper>
 </template>
 
@@ -9,3 +12,15 @@ export default {
   components: { DataWrapper },
 };
 </script>
+
+<style scoped>
+.starred-view__header {
+  padding: 25px;
+  background-color: #f7f8fb;
+}
+
+.starred-view__header > h1 {
+  color: #333343;
+  font-size: 35px;
+}
+</style>

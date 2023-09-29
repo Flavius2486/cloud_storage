@@ -57,6 +57,14 @@ const routes = [
       requiresAuth: true,
     },
   },
+  {
+    path: "/folder/:folderIdentifier",
+    name: "folderData",
+    component: () => import("../views/FolderDataView.vue"),
+    meta: {
+      requiresAuth: true,
+    },
+  },
 ];
 
 const router = createRouter({

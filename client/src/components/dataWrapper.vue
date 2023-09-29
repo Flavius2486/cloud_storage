@@ -326,6 +326,7 @@ export default {
       default: () => [],
     },
   },
+  emits: ["update-data"],
   data() {
     return {
       filesSelection: false,
@@ -371,10 +372,20 @@ export default {
           text: "Open",
           icon: ["fas", "folder-open"],
           modalClassName: "",
-          actionType: "modal",
+          actionType: "function",
           show: true,
           dataBrackedNotation: "",
-          action: () => {},
+          action: () => {
+            if (this.dataObjOpenedOptions.type === "folder") {
+              this.$emit("update-data");
+              this.$router.replace({
+                name: "folderData",
+                params: {
+                  folderIdentifier: this.dataObjOpenedOptions.unique_identifier,
+                },
+              });
+            }
+          },
         },
         {
           text: "Rename",
