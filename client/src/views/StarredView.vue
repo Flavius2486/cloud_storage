@@ -2,7 +2,7 @@
   <div class="starred-view__header">
     <h1>Starred</h1>
   </div>
-  <DataWrapper :data="$store.state.starredData"></DataWrapper>
+  <DataWrapper :data="$store.state.starredData" :page="'starred'"></DataWrapper>
 </template>
 
 <script>

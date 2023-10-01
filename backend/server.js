@@ -1217,6 +1217,66 @@ app.post("/auto-delete-data", (req, res) => {
   }
 });
 
+/*----------------Recover deleted data----------------*/
+
+async function recoverData(user, data) {
+  return new Promise((resolve, reject) => {
+    database.query(
+      "UPDATE data SET deletion_date = NULL WHERE user_username = ? AND unique_identifier = ?",
+      [user.username, data.unique_identifier],
+      (err) => {
+        if (err) {
+          reject();
+        } else {
+          resolve();
+        }
+      }
+    );
+  });
+}
+
+app.post("/recover", (req, res) => {
+  const user = getUser(req.cookies);
+  if (user) {
+    const { data } = req.body;
+    database.query(
+      "SELECT * FROM data WHERE user_username = ? AND deletion_date IS NOT NULL",
+      [user.username],
+      (err, result) => {
+        if (err) console.log(err);
+        result.forEach((resultData) => {
+          if (
+            resultData.unique_path.split("/").includes(data.unique_identifier)
+          ) {
+            recoverData(user, resultData).catch(() => {
+              console.log(err);
+              return res.json({
+                message: `Error recovering the ${data.type}!`,
+              });
+            });
+          }
+        });
+        recoverData(user, data)
+          .then(() => {
+            res.json({
+              message: `${capitalizeFirstLetter(
+                data.type
+              )} recoverd succesfully!`,
+            });
+          })
+          .catch(() => {
+            console.log(err);
+            return res.json({
+              message: `Error recovering the ${data.type}!`,
+            });
+          });
+      }
+    );
+  } else {
+    res.json({ message: "Unauthorized user!" });
+  }
+});
+
 /*----------------Add data to public----------------*/
 /*----------------Remove data to public----------------*/
 

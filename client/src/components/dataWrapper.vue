@@ -129,7 +129,7 @@
             <div
               class="file-options-btn file-dropdown file-options--dropdown"
               @click="
-                setFileDropdownOptions(index), showDropdown($event, index)
+                showDropdown($event, index), setFileDropdownOptions(index)
               "
             >
               <fa :icon="['fas', 'ellipsis']" class="file-options--dropdown" />
@@ -230,7 +230,7 @@
             <div
               class="file-options-btn file-dropdown file-options--dropdown"
               @click="
-                setFileDropdownOptions(index), showDropdown($event, index)
+                showDropdown($event, index), setFileDropdownOptions(index)
               "
             >
               <fa :icon="['fas', 'ellipsis']" class="file-options--dropdown" />
@@ -351,6 +351,10 @@ export default {
       required: true,
       default: () => [],
     },
+    page: {
+      type: String,
+      default: "",
+    },
   },
   emits: ["update-data"],
   data() {
@@ -427,7 +431,7 @@ export default {
           icon: ["fas", "arrow-right-to-bracket"],
           modalClassName: "modal-move-data",
           actionType: "modal",
-          show: true,
+          show: this.page !== "deleted" ? true : false,
           dataBrackedNotation: "",
           action: () => {},
         },
@@ -493,6 +497,17 @@ export default {
           show: true,
           dataBrackedNotation: "",
           action: () => {},
+        },
+        {
+          text: "Recover",
+          icon: ["fas", "trash-arrow-up"],
+          modalClassName: "",
+          actionType: "function",
+          show: this.page === "deleted" ? true : false,
+          dataBrackedNotation: "",
+          action: () => {
+            this.updateData(true, this.dataObjOpenedOptions, "recover");
+          },
         },
         {
           text: "Delete",
@@ -778,11 +793,16 @@ export default {
       });
       return selectedDataArray;
     },
+
     updateSelectedData(route) {
       const dataToModify = this.getSelectedData();
-      dataToModify.forEach((dataObj) => {
-        this.updateData(true, dataObj, route);
-      });
+      if (dataToModify.length > 0) {
+        dataToModify.forEach((dataObj) => {
+          this.updateData(true, dataObj, route);
+        });
+      } else {
+        this.showMessageBox("Please select at least 1 folder/file.");
+      }
     },
     downloadMultipleData() {},
 
@@ -1159,8 +1179,7 @@ tr {
   align-items: center;
   user-select: none;
   color: #252531;
-  font-size: 16px;
-  width: 195px;
+  font-size: 17px;
 }
 
 .line {
@@ -1173,8 +1192,8 @@ tr {
 }
 
 .options-container {
-  font-size: 15px;
-  width: 95px;
+  font-size: 16px;
+  width: 100px;
   display: flex;
   justify-content: space-between;
   align-items: center;

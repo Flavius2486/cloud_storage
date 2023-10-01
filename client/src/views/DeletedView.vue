@@ -2,7 +2,7 @@
   <div class="deleted-view__header">
     <h1>Deleted</h1>
   </div>
-  <DataWrapper :data="$store.state.deletedData"></DataWrapper>
+  <DataWrapper :data="$store.state.deletedData" :page="'deleted'"></DataWrapper>
 </template>
 
 <script>

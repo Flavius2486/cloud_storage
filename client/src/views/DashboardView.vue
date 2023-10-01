@@ -70,7 +70,7 @@
       </Dropdown>
     </div>
   </header>
-  <DataWrapper :data="$store.state.rootData"></DataWrapper>
+  <DataWrapper :data="$store.state.rootData" :page="'dashboard'"></DataWrapper>
   <FilesActionStatus
     :status="filesStatus"
     :numberOfFilesToUpload="filesToUpload"

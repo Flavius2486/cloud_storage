@@ -2,7 +2,7 @@
   <div class="public-view__header">
     <h1>Public</h1>
   </div>
-  <DataWrapper :data="$store.state.publicData"></DataWrapper>
+  <DataWrapper :data="$store.state.publicData" :page="'public'"></DataWrapper>
 </template>
 
 <script>

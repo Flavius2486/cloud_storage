@@ -4,7 +4,11 @@
       <i>{{ folder.frontend_path }}/{{ folder.name }}/</i>
     </p>
   </div>
-  <DataWrapper @update-data="fetchFolderData" :data="data"></DataWrapper>
+  <DataWrapper
+    @update-data="fetchFolderData"
+    :data="data"
+    :page="'folder'"
+  ></DataWrapper>
 </template>
 
 <script>

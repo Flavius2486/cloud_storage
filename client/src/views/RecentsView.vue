@@ -2,7 +2,7 @@
   <div class="recents-view__header">
     <h1>Recents</h1>
   </div>
-  <DataWrapper :data="$store.state.recentData"></DataWrapper>
+  <DataWrapper :data="$store.state.recentData" :page="'recents'"></DataWrapper>
 </template>
 
 <script>
