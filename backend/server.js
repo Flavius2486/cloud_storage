@@ -996,7 +996,7 @@ async function updateDataStarredStatus(user, data, starred) {
 app.post("/starred", (req, res) => {
   const user = getUser(req.cookies);
   if (user) {
-    const { starred, data } = req.body;
+    const { condition, data } = req.body;
     if (data.type === "folder") {
       database.query(
         "SELECT * FROM data WHERE user_username = ?",
@@ -1012,7 +1012,7 @@ app.post("/starred", (req, res) => {
                   .split("/")
                   .includes(data.unique_identifier)
               ) {
-                updateDataStarredStatus(user, resultData, starred).catch(
+                updateDataStarredStatus(user, resultData, condition).catch(
                   (err) => {
                     console.log(err);
                   }
@@ -1023,9 +1023,9 @@ app.post("/starred", (req, res) => {
         }
       );
     }
-    updateDataStarredStatus(user, data, starred)
+    updateDataStarredStatus(user, data, condition)
       .then(() => {
-        if (starred) {
+        if (condition) {
           res.json({
             message: `${capitalizeFirstLetter(data.type)} added to starred!`,
           });
@@ -1239,7 +1239,7 @@ async function updateDataPublicStatus(user, data, isPublic) {
 app.post("/public", (req, res) => {
   const user = getUser(req.cookies);
   if (user) {
-    const { isPublic, data } = req.body;
+    const { condition, data } = req.body;
     if (data.type === "folder") {
       database.query(
         "SELECT * FROM data WHERE user_username = ?",
@@ -1254,7 +1254,7 @@ app.post("/public", (req, res) => {
                   .split("/")
                   .includes(data.unique_identifier)
               ) {
-                updateDataPublicStatus(user, resultData, isPublic).catch(
+                updateDataPublicStatus(user, resultData, condition).catch(
                   (err) => {
                     console.log(err);
                   }
@@ -1265,16 +1265,16 @@ app.post("/public", (req, res) => {
         }
       );
     }
-    updateDataPublicStatus(user, data, isPublic)
+    updateDataPublicStatus(user, data, condition)
       .then(() => {
-        if (isPublic) {
+        if (condition) {
           res.json({ message: `The ${data.type} has been made public` });
         } else {
           res.json({ message: `The ${data.type} has been made private` });
         }
       })
       .catch((err) => {
-        if (isPublic) {
+        if (condition) {
           res.json({ message: `Error making ${data.type} public!` });
         } else {
           res.json({ message: `Error making ${data.type} private!` });

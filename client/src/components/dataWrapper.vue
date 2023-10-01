@@ -97,8 +97,13 @@
           </div>
         </div>
         <div class="select-files-btn" @click="filesSelectionToggle()">
-          <div>
-            <fa :icon="['fas', 'check-to-slot']" />
+          <div class="select-files-toggle-btn" v-if="!filesSelection">
+            <!-- <fa :icon="['fas', 'check-to-slot']" /> -->
+            Select
+          </div>
+          <div class="select-files-toggle-btn" v-else>
+            <!-- <fa :icon="['fas', 'check-to-slot']" /> -->
+            Cancel
           </div>
         </div>
       </div>
@@ -184,8 +189,13 @@
         </th>
         <th>
           <div class="select-files-btn" @click="filesSelectionToggle()">
-            <div>
-              <fa :icon="['fas', 'check-to-slot']" />
+            <div class="select-files-toggle-btn" v-if="!filesSelection">
+              <!-- <fa :icon="['fas', 'check-to-slot']" /> -->
+              Select
+            </div>
+            <div class="select-files-toggle-btn" v-else>
+              <!-- <fa :icon="['fas', 'check-to-slot']" /> -->
+              Cancel
             </div>
           </div>
         </th>
@@ -279,6 +289,22 @@
     ref="MessageBox"
     :style="{ marginLeft: '15px', bottom: '20px' }"
   ></MessageBox>
+  <div class="actions-box" v-show="showDataActionsBar">
+    <p>{{ selectedData }} selected</p>
+    <div class="line"></div>
+    <div class="options-container">
+      <fa @click="updateSelectedData('starred')" :icon="['far', 'star']"></fa>
+      <fa
+        @click="updateSelectedData('public')"
+        :icon="['fas', 'users-slash']"
+      ></fa>
+      <fa @click="downloadMultipleData()" :icon="['fas', 'download']"></fa>
+      <fa
+        @click="updateSelectedData('delete')"
+        :icon="['far', 'trash-can']"
+      ></fa>
+    </div>
+  </div>
   <div
     v-if="data.length == 0 && !$store.state.dataReceived"
     class="receiving-data-status"
@@ -413,7 +439,7 @@ export default {
           show: true,
           dataBrackedNotation: "starred",
           action: () => {
-            this.starredData(true);
+            this.updateData(true, this.dataObjOpenedOptions, "starred");
           },
         },
         {
@@ -424,7 +450,7 @@ export default {
           show: false,
           dataBrackedNotation: "starred",
           action: () => {
-            this.starredData(false);
+            this.updateData(false, this.dataObjOpenedOptions, "starred");
           },
         },
         {
@@ -435,7 +461,7 @@ export default {
           show: true,
           dataBrackedNotation: "public",
           action: () => {
-            this.publicData(true);
+            this.updateData(true, this.dataObjOpenedOptions, "public");
           },
         },
         {
@@ -447,7 +473,7 @@ export default {
           show: false,
           dataBrackedNotation: "public",
           action: () => {
-            this.publicData(false);
+            this.updateData(false, this.dataObjOpenedOptions, "public");
           },
         },
         {
@@ -476,12 +502,14 @@ export default {
           show: true,
           dataBrackedNotation: "",
           action: () => {
-            this.deleteData();
+            this.updateData(true, this.dataObjOpenedOptions, "delete");
           },
         },
       ],
       dataCopy: this.data,
       dataObjOpenedOptions: {},
+      selectedData: 0,
+      showDataActionsBar: false,
     };
   },
   methods: {
@@ -516,13 +544,13 @@ export default {
       }
     },
 
-    publicData(isPublic) {
+    updateData(isTrue, obj, route) {
       axios
         .post(
-          `${config.BASE_URL}/public`,
+          `${config.BASE_URL}/${route}`,
           {
-            isPublic: isPublic,
-            data: this.dataObjOpenedOptions,
+            condition: isTrue,
+            data: obj,
           },
           { withCredentials: true }
         )
@@ -535,42 +563,61 @@ export default {
         });
     },
 
-    deleteData() {
-      axios
-        .post(
-          `${config.BASE_URL}/delete`,
-          {
-            data: this.dataObjOpenedOptions,
-          },
-          { withCredentials: true }
-        )
-        .then((response) => {
-          fetchData();
-          this.showMessageBox(response.data.message);
-        })
-        .catch((err) => {
-          console.log(err);
-        });
-    },
+    // publicData(isPublic, obj) {
+    //   axios
+    //     .post(
+    //       `${config.BASE_URL}/public`,
+    //       {
+    //         isPublic: isPublic,
+    //         data: obj,
+    //       },
+    //       { withCredentials: true }
+    //     )
+    //     .then((response) => {
+    //       fetchData();
+    //       this.showMessageBox(response.data.message);
+    //     })
+    //     .catch((err) => {
+    //       console.log(err);
+    //     });
+    // },
 
-    starredData(starred) {
-      axios
-        .post(
-          `${config.BASE_URL}/starred`,
-          {
-            starred: starred,
-            data: this.dataObjOpenedOptions,
-          },
-          { withCredentials: true }
-        )
-        .then((response) => {
-          fetchData();
-          this.showMessageBox(response.data.message);
-        })
-        .catch((err) => {
-          console.log(err);
-        });
-    },
+    // deleteData(obj) {
+    //   axios
+    //     .post(
+    //       `${config.BASE_URL}/delete`,
+    //       {
+    //         data: obj,
+    //       },
+    //       { withCredentials: true }
+    //     )
+    //     .then((response) => {
+    //       fetchData();
+    //       this.showMessageBox(response.data.message);
+    //     })
+    //     .catch((err) => {
+    //       console.log(err);
+    //     });
+    // },
+
+    // starredData(starred, obj) {
+    //   axios
+    //     .post(
+    //       `${config.BASE_URL}/starred`,
+    //       {
+    //         starred: starred,
+    //         data: obj,
+    //       },
+    //       { withCredentials: true }
+    //     )
+    //     .then((response) => {
+    //       fetchData();
+    //       this.showMessageBox(response.data.message);
+    //     })
+    //     .catch((err) => {
+    //       console.log(err);
+    //     });
+    // },
 
     dataAction(option) {
       if (option.actionType === "function") {
@@ -645,10 +692,11 @@ export default {
 
     setfilesWrapperFormat() {
       this.tableFormat = !this.tableFormat;
-      this.filesSelection = false;
+      this.cancelfilesSelection();
     },
 
     setSortingOrder() {
+      this.cancelfilesSelection();
       this.defaultSorting();
       this.columnsData.forEach((sort) => {
         //verify if new column order is clicked
@@ -718,9 +766,30 @@ export default {
           files selection system
     \*-------------------------------*/
 
+    getSelectedData() {
+      let selectedDataArray = [];
+      const checkboxes = document.querySelectorAll(
+        ".file .select-file-btn input"
+      );
+      checkboxes.forEach((checkbox, index) => {
+        if (checkbox.checked) {
+          selectedDataArray.push(this.dataCopy[index]);
+        }
+      });
+      return selectedDataArray;
+    },
+    updateSelectedData(route) {
+      const dataToModify = this.getSelectedData();
+      dataToModify.forEach((dataObj) => {
+        this.updateData(true, dataObj, route);
+      });
+    },
+    downloadMultipleData() {},
+
     filesSelectionToggle() {
       //set files selection to true/false if the selection button is pressed
       this.filesSelection = !this.filesSelection;
+      this.showDataActionsBar = !this.showDataActionsBar;
 
       if (!this.filesSelection) {
         //cancel the selection
@@ -735,6 +804,11 @@ export default {
           ".file .select-file-btn input"
         )[index];
         checkbox.checked = !checkbox.checked;
+        if (checkbox.checked) {
+          this.selectedData++;
+        } else {
+          this.selectedData--;
+        }
       }
     },
 
@@ -742,6 +816,8 @@ export default {
       const files = document.querySelectorAll(".file");
       //set files selection to false
       this.filesSelection = false;
+      this.selectedData = 0;
+      this.showDataActionsBar = false;
       //go trough every file
       files.forEach((file) => {
         //chage the background color to defalut
@@ -919,12 +995,15 @@ tr {
   display: flex;
   justify-content: flex-end;
   align-items: center;
+  font-size: 15.5px;
+  user-select: none;
 }
 
-.select-files-btn > div {
-  margin-right: 15px;
-  margin-top: 10px;
-  font-size: 17px;
+.select-files-toggle-btn {
+  padding: 1px 2.5px;
+  border: 1px solid #c3c5df;
+  box-shadow: rgba(0, 0, 0, 0.24) 0px 1px 2px;
+  border-radius: 5px;
 }
 
 .file--list {
@@ -1063,5 +1142,41 @@ tr {
 
 .file-name {
   text-overflow: ellipsis;
+}
+
+/*-------------Data actions bar----------------*/
+
+.actions-box {
+  position: absolute;
+  margin-left: calc(38% - 95px);
+  transform: translate(0, -50%);
+  bottom: 20px;
+  box-shadow: rgba(0, 0, 0, 0.24) 0px 2px 4px;
+  padding: 5px;
+  border-radius: 5px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  user-select: none;
+  color: #252531;
+  font-size: 16px;
+  width: 195px;
+}
+
+.line {
+  margin: 0 5px;
+  height: 15px;
+  width: 2px;
+  border-radius: 5px;
+  background-color: #808086;
+  box-shadow: rgba(0, 0, 0, 0.24) 0px 2px 4px;
+}
+
+.options-container {
+  font-size: 15px;
+  width: 95px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
 }
 </style>
