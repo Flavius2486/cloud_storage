@@ -8,6 +8,7 @@ import bcrypt from "bcrypt";
 import multer from "multer";
 import fs from "fs";
 import path from "path";
+import os from "os";
 
 import database from "./database/connection.js";
 
@@ -317,21 +318,30 @@ function createFolders(i, user) {
         filesArray[i].path[j] !== prevRelativePath[j].path &&
         filesArray[i].user === prevRelativePath[j].user)
     ) {
-      foldersArray.push({
-        name: filesArray[i].path[j],
-        uniqueName: generateUniqueId(),
-        path: JSON.parse(JSON.stringify(filesArray[i].path)),
-        uniquePath: [],
-        public: false,
-        nestedPosition: j,
-        size: 0,
-        user: user.username,
-      });
-      newRelativePath = true;
+      let create = !uploadedFoldersArray.find(
+        (folder) =>
+          folder.name === filesArray[i].path[j] && folder.nestedPosition === j
+      );
+      if (create) {
+        foldersArray.push({
+          name: filesArray[i].path[j],
+          uniqueName: generateUniqueId(),
+          path: JSON.parse(JSON.stringify(filesArray[i].path)),
+          uniquePath: [],
+          public: false,
+          nestedPosition: j,
+          size: 0,
+          user: user.username,
+        });
+        newRelativePath = true;
+      }
     }
   }
   if (newRelativePath)
-    prevRelativePath = { path: filesArray[i].path, user: filesArray[i].user };
+    prevRelativePath.push({
+      path: filesArray[i].path,
+      user: filesArray[i].user,
+    });
 }
 
 function getFoldersPath() {
@@ -407,15 +417,15 @@ function uploadFolders(user) {
     if (uploadedFoldersArray.length > 0) {
       upload = !uploadedFoldersArray.find(
         (folder) =>
-          folder.uniqueName === foldersArray[m].uniqueName &&
+          folder.name === foldersArray[m].name &&
           folder.nestedPosition === foldersArray[m].nestedPosition
       );
     }
-    database.query(
-      "UPDATE data SET size = ? WHERE user_username = ? AND unique_identifier = ?",
-      [foldersArray[m].size, user.username, foldersArray[m].uniqueName],
-      () => {
-        if (upload) {
+    if (upload) {
+      database.query(
+        "UPDATE data SET size = ? WHERE user_username = ? AND unique_identifier = ?",
+        [foldersArray[m].size, user.username, foldersArray[m].uniqueName],
+        () => {
           uploadedFoldersArray.push(
             JSON.parse(JSON.stringify(foldersArray[m]))
           );
@@ -424,16 +434,17 @@ function uploadFolders(user) {
           folder.path.pop();
           folder.path = folder.path.join("/");
           folder.uniquePath = foldersArray[m].uniquePath.join("/");
+          console.log(folder);
           storeData(folder, "folder");
         }
-      }
-    );
+      );
+    }
   }
 }
 
-async function combineChunks(chunkFilePaths, fileId) {
+async function combineChunks(chunkFilePaths, fileId, user) {
   let combinedStream = fs.createWriteStream(
-    path.join("./uploads/files/", fileId),
+    path.join(`./uploads/${user.username}/files`, fileId),
     {
       flags: "a",
     }
@@ -441,7 +452,7 @@ async function combineChunks(chunkFilePaths, fileId) {
 
   for (let a = 0; a < chunkFilePaths.length; a++) {
     const chunkStream = fs.createReadStream(
-      path.join("./uploads/chunks/", chunkFilePaths[a])
+      path.join(`./uploads/${user.username}/chunks`, chunkFilePaths[a])
     );
 
     await new Promise((resolve, reject) => {
@@ -449,7 +460,9 @@ async function combineChunks(chunkFilePaths, fileId) {
 
       chunkStream.on("end", () => {
         combinedStream.write("\n"); // Add a separator between chunks
-        fs.unlinkSync(path.join("./uploads/chunks/", chunkFilePaths[a])); // Delete the processed chunk file
+        fs.unlinkSync(
+          path.join(`./uploads/${user.username}/chunks`, chunkFilePaths[a])
+        ); // Delete the processed chunk file
         resolve();
       });
 
@@ -465,59 +478,74 @@ async function combineChunks(chunkFilePaths, fileId) {
 
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
-    cb(null, "uploads/chunks/");
+    const user = getUser(req.cookies);
+    if (user) {
+      if (!fs.existsSync(`./uploads/${user.username}/`)) {
+        // If it doesn't exist, create the folder
+        fs.mkdirSync(`./uploads/${user.username}/`);
+        fs.mkdirSync(`./uploads/${user.username}/files`);
+        fs.mkdirSync(`./uploads/${user.username}/chunks`);
+      }
+      cb(null, `./uploads/${user.username}/chunks/`);
+    } else {
+      cb(null, null);
+    }
   },
   filename: (req, file, cb) => {
     const user = getUser(req.cookies);
-    const chunkName =
-      req.body.resumableIdentifier +
-      "-" +
-      (Number(req.body.resumableChunkNumber) - 1);
-    //set variable to false to let the program know that a chunk was not added(default)
-    let chunkAdded = false;
-    //verify if are any chunks in the files array
-    if (filesArray.length > 0) {
-      //find the file that match the current resumable unique identifier
-      filesArray.forEach((fileData) => {
-        if (
-          fileData.uniqueIdentifier === req.body.resumableIdentifier &&
-          fileData.user === user.username &&
-          user !== null
-        ) {
-          //if it found a match add the resumable chunk in the chunks array on th chunk number position - 1
-          fileData.chunks[Number(req.body.resumableChunkNumber) - 1] =
-            chunkName;
-          chunkAdded = true;
-        }
-      });
+    if (user) {
+      const chunkName =
+        req.body.resumableIdentifier +
+        "-" +
+        (Number(req.body.resumableChunkNumber) - 1);
+      //set variable to false to let the program know that a chunk was not added(default)
+      let chunkAdded = false;
+      //verify if are any chunks in the files array
+      if (filesArray.length > 0) {
+        //find the file that match the current resumable unique identifier
+        filesArray.forEach((fileData) => {
+          if (
+            fileData.uniqueIdentifier === req.body.resumableIdentifier &&
+            fileData.user === user.username &&
+            user !== null
+          ) {
+            //if it found a match add the resumable chunk in the chunks array on th chunk number position - 1
+            fileData.chunks[Number(req.body.resumableChunkNumber) - 1] =
+              chunkName;
+            chunkAdded = true;
+          }
+        });
+      }
+      //if it didn't find a resumabke identifier match or the files array is empty add a new object in the files array with the necessarry data
+      if (!chunkAdded) {
+        //if the file has a relative path adn the relative path array is longer that 1 means the file in in a folder
+        let fileRelativePath = req.body.resumableRelativePath.split("/");
+        if (fileRelativePath) {
+          //delete the last element(the file name) from the path
+          fileRelativePath.pop();
+        } else fileRelativePath = [];
+        filesArray.push({
+          name: req.body.resumableFilename,
+          uniqueName: null,
+          uniqueIdentifier: req.body.resumableIdentifier,
+          totalChunks: Number(req.body.resumableTotalChunks),
+          path: fileRelativePath,
+          uniquePath: [],
+          size: Number(req.body.resumableTotalSize),
+          public: false,
+          status: 0,
+          chunks: [],
+          user: user.username,
+        });
+        //add the cunk
+        filesArray[filesArray.length - 1].chunks[
+          Number(req.body.resumableChunkNumber) - 1
+        ] = chunkName;
+      }
+      cb(null, chunkName);
+    } else {
+      cb(null, null);
     }
-    //if it didn't find a resumabke identifier match or the files array is empty add a new object in the files array with the necessarry data
-    if (!chunkAdded) {
-      //if the file has a relative path adn the relative path array is longer that 1 means the file in in a folder
-      let fileRelativePath = req.body.resumableRelativePath.split("/");
-      if (fileRelativePath) {
-        //delete the last element(the file name) from the path
-        fileRelativePath.pop();
-      } else fileRelativePath = [];
-      filesArray.push({
-        name: req.body.resumableFilename,
-        uniqueName: null,
-        uniqueIdentifier: req.body.resumableIdentifier,
-        totalChunks: Number(req.body.resumableTotalChunks),
-        path: fileRelativePath,
-        uniquePath: [],
-        size: Number(req.body.resumableTotalSize),
-        public: false,
-        status: 0,
-        chunks: [],
-        user: user.username,
-      });
-      //add the cunk
-      filesArray[filesArray.length - 1].chunks[
-        Number(req.body.resumableChunkNumber) - 1
-      ] = chunkName;
-    }
-    cb(null, chunkName);
   },
 });
 
@@ -577,7 +605,11 @@ app.post("/upload", upload.array("file"), (req, res) => {
               ? filesArray[i].uniquePath.join("/")
               : "";
 
-          await combineChunks(filesArray[i].chunks, filesArray[i].uniqueName)
+          await combineChunks(
+            filesArray[i].chunks,
+            filesArray[i].uniqueName,
+            user
+          )
             .then(() => {
               //delete the added file
               storeData(filesArray[i], "file");
@@ -724,6 +756,7 @@ app.get("/fetch-data", (req, res) => {
         let deletedData = [];
         let folders = [];
         let rootData = [];
+        let usedMemory = 0;
         let dataFound = false;
         if (result.length > 0) {
           dataFound = true;
@@ -735,6 +768,8 @@ app.get("/fetch-data", (req, res) => {
         };
 
         result.forEach((data) => {
+          usedMemory += Number(data.size);
+          data.size = (data.size / 1024).toFixed(2);
           const fileLastAccessed = data.last_accessed;
           data.last_accessed = getFormatedDate(data.last_accessed);
           data.creation_date = getFormatedDate(data.creation_date);
@@ -771,6 +806,8 @@ app.get("/fetch-data", (req, res) => {
             }
           }
         });
+        usedMemory = (usedMemory / Math.pow(1024, 3)).toFixed(2);
+        const freeMemory = os.freemem().toFixed(2);
         publicData = filterData(publicData);
         starredData = filterData(starredData);
         recentData = filterData(recentData);
@@ -783,6 +820,8 @@ app.get("/fetch-data", (req, res) => {
           recentData: recentData,
           publicData: publicData,
           starredData: starredData,
+          freeMemory: freeMemory,
+          usedMemory: usedMemory,
         });
       }
     );
@@ -1163,10 +1202,9 @@ app.post("/delete", (req, res) => {
                       .includes(data.unique_identifier)
                   ) {
                     deleteData(user, resultData).catch(() => {
-                      console.log(err);
-                      return res.json({
-                        message: `Error deleting the ${data.type}!`,
-                      });
+                      // return res.json({
+                      //   message: `Error deleting the ${data.type}!`,
+                      // });
                     });
                   }
                 });
@@ -1280,71 +1318,71 @@ app.post("/recover", (req, res) => {
 /*----------------Add data to public----------------*/
 /*----------------Remove data to public----------------*/
 
-async function updateDataPublicStatus(user, data, isPublic) {
-  return new Promise((resolve, reject) => {
-    database.query(
-      "UPDATE data SET public = ? WHERE user_username = ? AND unique_identifier = ?",
-      [isPublic, user.username, data.unique_identifier],
-      (err) => {
-        if (err) {
-          reject();
-        } else {
-          resolve();
-        }
-      }
-    );
-  });
-}
+// async function updateDataPublicStatus(user, data, isPublic) {
+//   return new Promise((resolve, reject) => {
+//     database.query(
+//       "UPDATE data SET public = ? WHERE user_username = ? AND unique_identifier = ?",
+//       [isPublic, user.username, data.unique_identifier],
+//       (err) => {
+//         if (err) {
+//           reject();
+//         } else {
+//           resolve();
+//         }
+//       }
+//     );
+//   });
+// }
 
-app.post("/public", (req, res) => {
-  const user = getUser(req.cookies);
-  if (user) {
-    const { condition, data } = req.body;
-    if (data.type === "folder") {
-      database.query(
-        "SELECT * FROM data WHERE user_username = ?",
-        [user.username],
-        (err, result) => {
-          if (err) {
-            return res.json({ message: "Error selecting data!" });
-          } else {
-            result.forEach((resultData) => {
-              if (
-                resultData.unique_path
-                  .split("/")
-                  .includes(data.unique_identifier)
-              ) {
-                updateDataPublicStatus(user, resultData, condition).catch(
-                  (err) => {
-                    console.log(err);
-                  }
-                );
-              }
-            });
-          }
-        }
-      );
-    }
-    updateDataPublicStatus(user, data, condition)
-      .then(() => {
-        if (condition) {
-          res.json({ message: `The ${data.type} has been made public` });
-        } else {
-          res.json({ message: `The ${data.type} has been made private` });
-        }
-      })
-      .catch((err) => {
-        if (condition) {
-          res.json({ message: `Error making ${data.type} public!` });
-        } else {
-          res.json({ message: `Error making ${data.type} private!` });
-        }
-        console.log(err);
-      });
-  } else {
-    res.json({ message: "Unauthorized user!" });
-  }
-});
+// app.post("/public", (req, res) => {
+//   const user = getUser(req.cookies);
+//   if (user) {
+//     const { condition, data } = req.body;
+//     if (data.type === "folder") {
+//       database.query(
+//         "SELECT * FROM data WHERE user_username = ?",
+//         [user.username],
+//         (err, result) => {
+//           if (err) {
+//             return res.json({ message: "Error selecting data!" });
+//           } else {
+//             result.forEach((resultData) => {
+//               if (
+//                 resultData.unique_path
+//                   .split("/")
+//                   .includes(data.unique_identifier)
+//               ) {
+//                 updateDataPublicStatus(user, resultData, condition).catch(
+//                   (err) => {
+//                     console.log(err);
+//                   }
+//                 );
+//               }
+//             });
+//           }
+//         }
+//       );
+//     }
+//     updateDataPublicStatus(user, data, condition)
+//       .then(() => {
+//         if (condition) {
+//           res.json({ message: `The ${data.type} has been made public` });
+//         } else {
+//           res.json({ message: `The ${data.type} has been made private` });
+//         }
+//       })
+//       .catch((err) => {
+//         if (condition) {
+//           res.json({ message: `Error making ${data.type} public!` });
+//         } else {
+//           res.json({ message: `Error making ${data.type} private!` });
+//         }
+//         console.log(err);
+//       });
+//   } else {
+//     res.json({ message: "Unauthorized user!" });
+//   }
+// });
 
 app.listen(3002, () => {
   console.log("Server listening on port 3002");
