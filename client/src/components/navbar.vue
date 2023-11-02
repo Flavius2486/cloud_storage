@@ -6,10 +6,15 @@
       </div>
     </div>
     <div class="search-bar">
-      <div class="search-icon">
+      <div class="search-icon" @click="search()">
         <fa :icon="['fas', 'magnifying-glass']" />
       </div>
-      <input type="search" placeholder="Search" />
+      <input
+        v-model="searchQuery"
+        type="search"
+        placeholder="Search"
+        @keyup.enter="search()"
+      />
     </div>
     <div class="navbar__right-side--group">
       <div class="settings-btn dropdown-settings" @click="showDropdown($event)">
@@ -27,11 +32,16 @@
       </Dropdown>
     </div>
   </div>
+  <MessageBox
+    ref="MessageBox"
+    :style="{ marginLeft: '15px', bottom: '20px' }"
+  ></MessageBox>
 </template>
 
 <script>
 import Dropdown from "@/components/dropdown/dropdown.vue";
 import DropdownOption from "@/components/dropdown/dropdownOption";
+import MessageBox from "@/components/notifications/messageBox.vue";
 import axios from "axios";
 import config from "@/config.json";
 
@@ -40,6 +50,12 @@ export default {
   components: {
     Dropdown,
     DropdownOption,
+    MessageBox,
+  },
+  data() {
+    return {
+      searchQuery: "",
+    };
   },
   methods: {
     showDropdown(event) {
@@ -65,6 +81,33 @@ export default {
         .catch((error) => {
           console.log(error);
         });
+    },
+    showMessageBox(message) {
+      this.$refs.MessageBox.showMessage(message);
+    },
+    search() {
+      let query = [];
+      if (this.searchQuery) query = this.searchQuery.split("|");
+      if (query.length === 3) {
+        query[0] = query[0].trim();
+        query[1] = query[1].trim();
+        query[2] = query[2]
+          .trim()
+          .split(" ")
+          .map((element) => element.trim())
+          .join("-");
+
+        query = query.join("?");
+
+        this.$router.replace({
+          name: "search",
+          params: {
+            query: query,
+          },
+        });
+      } else {
+        this.showMessageBox("There is an error in your search syntax.");
+      }
     },
   },
 };

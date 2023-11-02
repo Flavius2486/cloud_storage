@@ -9,12 +9,14 @@ const fetchData = () => {
       store.commit("setDataStatus", { state: true });
       store.commit("setData", {
         data: {
-          rootData: response.data.rootData,
+          dashboardData: response.data.rootData,
           folders: response.data.folders,
           deletedData: response.data.deletedData,
           recentData: response.data.recentData,
           publicData: response.data.publicData,
           starredData: response.data.starredData,
+          freeMemory: response.data.freeMemory,
+          usedMemory: response.data.usedMemory,
         },
       });
     });

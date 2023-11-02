@@ -238,6 +238,13 @@ app.post("/login", (req, res) => {
                 username: data[0].username,
               };
 
+              if (!fs.existsSync(`./uploads/${user.username}/`)) {
+                // If it doesn't exist, create the folder
+                fs.mkdirSync(`./uploads/${user.username}/`);
+                fs.mkdirSync(`./uploads/${user.username}/files`);
+                fs.mkdirSync(`./uploads/${user.username}/chunks`);
+              }
+
               const accessToken = generateAccessToken(user);
 
               const refreshToken = jwt.sign(user, process.env.REFRESH_TOKEN);
@@ -434,7 +441,6 @@ function uploadFolders(user) {
           folder.path.pop();
           folder.path = folder.path.join("/");
           folder.uniquePath = foldersArray[m].uniquePath.join("/");
-          console.log(folder);
           storeData(folder, "folder");
         }
       );
@@ -480,12 +486,6 @@ const storage = multer.diskStorage({
   destination: (req, file, cb) => {
     const user = getUser(req.cookies);
     if (user) {
-      if (!fs.existsSync(`./uploads/${user.username}/`)) {
-        // If it doesn't exist, create the folder
-        fs.mkdirSync(`./uploads/${user.username}/`);
-        fs.mkdirSync(`./uploads/${user.username}/files`);
-        fs.mkdirSync(`./uploads/${user.username}/chunks`);
-      }
       cb(null, `./uploads/${user.username}/chunks/`);
     } else {
       cb(null, null);

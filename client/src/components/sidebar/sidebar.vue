@@ -23,8 +23,7 @@
         <span></span>
       </div>
       <div class="storage-informations-text">
-        {{ usedStorage.value }}{{ usedStorage.unit }} out of
-        {{ freeStorage.value }}{{ freeStorage.unit }} used
+        {{ $store.state.usedMemory }}GB out of 120GB used
       </div>
     </div>
   </aside>
@@ -62,13 +61,13 @@ export default {
           active: false,
           page: "starred",
         },
-        {
-          icon: ["far", "user"],
-          color: "#5c9f19",
-          text: "Public",
-          active: false,
-          page: "public",
-        },
+        // {
+        //   icon: ["far", "user"],
+        //   color: "#5c9f19",
+        //   text: "Public",
+        //   active: false,
+        //   page: "public",
+        // },
         {
           icon: ["far", "trash-can"],
           color: "#d31c1c",
@@ -77,8 +76,6 @@ export default {
           page: "deleted",
         },
       ],
-      usedStorage: { value: 25, unit: "GB" },
-      freeStorage: { value: 50, unit: "GB" },
     };
   },
   methods: {
@@ -91,7 +88,7 @@ export default {
     },
     progressBar() {
       const usedStorage =
-        (this.usedStorage.value / this.freeStorage.value) * 100;
+        (Math.floor(this.$store.state.usedMemory) / 120) * 100;
       document.querySelector(".progress-bar span").style.width =
         usedStorage + "%";
     },

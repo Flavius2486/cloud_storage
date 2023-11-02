@@ -121,9 +121,10 @@
               <input type="checkbox" @click.stop @click.prevent />
             </div>
             <div class="file-image">
-              <img src="@/assets/logo.png" />
+              <img v-if="file.type === 'file'" src="@/assets/file.png" />
+              <img v-else src="@/assets/folder.png" />
             </div>
-            <p class="file-name">{{ file.name }}</p>
+            <p class="file-name file-name-table">{{ file.name }}</p>
           </div>
           <div class="file-options-btn-container">
             <div
@@ -214,13 +215,14 @@
               <input type="checkbox" @click.stop @click.prevent />
             </div>
             <div class="file-image">
-              <img src="@/assets/logo.png" />
+              <img v-if="file.type === 'file'" src="@/assets/file.png" />
+              <img v-else src="@/assets/folder.png" />
             </div>
             <p class="file-name">{{ file.name }}</p>
           </div>
         </th>
         <th>
-          <p class="file-size">{{ file.size }}</p>
+          <p class="file-size">{{ file.size }}MB</p>
         </th>
         <th>
           <p class="file-last-accesed">{{ file.last_accessed }}</p>
@@ -294,10 +296,10 @@
     <div class="line"></div>
     <div class="options-container">
       <fa @click="updateSelectedData('starred')" :icon="['far', 'star']"></fa>
-      <fa
+      <!-- <fa
         @click="updateSelectedData('public')"
         :icon="['fas', 'users-slash']"
-      ></fa>
+      ></fa> -->
       <fa @click="downloadMultipleData()" :icon="['fas', 'download']"></fa>
       <fa
         @click="updateSelectedData('delete')"
@@ -457,29 +459,29 @@ export default {
             this.updateData(false, this.dataObjOpenedOptions, "starred");
           },
         },
-        {
-          text: "Move to public",
-          icon: ["fas", "users-slash"],
-          modalClassName: "",
-          actionType: "function",
-          show: true,
-          dataBrackedNotation: "public",
-          action: () => {
-            this.updateData(true, this.dataObjOpenedOptions, "public");
-          },
-        },
-        {
-          text: "Remove from public",
-          optionName: "public",
-          icon: ["fas", "users"],
-          modalClassName: "",
-          actionType: "function",
-          show: false,
-          dataBrackedNotation: "public",
-          action: () => {
-            this.updateData(false, this.dataObjOpenedOptions, "public");
-          },
-        },
+        // {
+        //   text: "Move to public",
+        //   icon: ["fas", "users-slash"],
+        //   modalClassName: "",
+        //   actionType: "function",
+        //   show: true,
+        //   dataBrackedNotation: "public",
+        //   action: () => {
+        //     this.updateData(true, this.dataObjOpenedOptions, "public");
+        //   },
+        // },
+        // {
+        //   text: "Remove from public",
+        //   optionName: "public",
+        //   icon: ["fas", "users"],
+        //   modalClassName: "",
+        //   actionType: "function",
+        //   show: false,
+        //   dataBrackedNotation: "public",
+        //   action: () => {
+        //     this.updateData(false, this.dataObjOpenedOptions, "public");
+        //   },
+        // },
         {
           text: "Detalies",
           icon: ["fas", "circle-info"],
@@ -539,6 +541,11 @@ export default {
 
     setFileDropdownOptions(index) {
       this.dataObjOpenedOptions = this.dataCopy[index];
+      if (this.dataObjOpenedOptions.type === "file") {
+        this.filesOptions[0].show = false;
+      } else {
+        this.filesOptions[0].show = true;
+      }
       for (let i = 0; i < this.filesOptions.length; i++) {
         if (
           this.dataObjOpenedOptions[
@@ -577,62 +584,6 @@ export default {
           console.log(err);
         });
     },
-
-    // publicData(isPublic, obj) {
-    //   axios
-    //     .post(
-    //       `${config.BASE_URL}/public`,
-    //       {
-    //         isPublic: isPublic,
-    //         data: obj,
-    //       },
-    //       { withCredentials: true }
-    //     )
-    //     .then((response) => {
-    //       fetchData();
-    //       this.showMessageBox(response.data.message);
-    //     })
-    //     .catch((err) => {
-    //       console.log(err);
-    //     });
-    // },
-
-    // deleteData(obj) {
-    //   axios
-    //     .post(
-    //       `${config.BASE_URL}/delete`,
-    //       {
-    //         data: obj,
-    //       },
-    //       { withCredentials: true }
-    //     )
-    //     .then((response) => {
-    //       fetchData();
-    //       this.showMessageBox(response.data.message);
-    //     })
-    //     .catch((err) => {
-    //       console.log(err);
-    //     });
-    // },
-
-    // starredData(starred, obj) {
-    //   axios
-    //     .post(
-    //       `${config.BASE_URL}/starred`,
-    //       {
-    //         starred: starred,
-    //         data: obj,
-    //       },
-    //       { withCredentials: true }
-    //     )
-    //     .then((response) => {
-    //       fetchData();
-    //       this.showMessageBox(response.data.message);
-    //     })
-    //     .catch((err) => {
-    //       console.log(err);
-    //     });
-    // },
 
     dataAction(option) {
       if (option.actionType === "function") {
@@ -1049,7 +1000,7 @@ tr {
 .file-name-column {
   display: flex;
   align-items: center;
-  word-spacing: 0;
+  /* width: calc(100px); */
 }
 
 .file-size-column,
@@ -1141,7 +1092,7 @@ tr {
 
 .files-container-table-format {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(240px, 1.2fr));
+  grid-template-columns: repeat(auto-fit, minmax(240px, 0.8fr));
 }
 
 .file--table {
@@ -1161,7 +1112,31 @@ tr {
 }
 
 .file-name {
+  white-space: nowrap;
+  overflow: hidden;
   text-overflow: ellipsis;
+}
+
+@media screen and (min-width: 2000px) {
+  .file-name {
+    max-width: 700px;
+  }
+}
+
+@media screen and (max-width: 1450px) {
+  .file-name {
+    max-width: 300px;
+  }
+}
+
+@media screen and (max-width: 1100px) {
+  .file-name {
+    max-width: 200px;
+  }
+}
+
+.file-name-table {
+  max-width: 150px;
 }
 
 /*-------------Data actions bar----------------*/
@@ -1184,7 +1159,7 @@ tr {
 
 .line {
   margin: 0 5px;
-  height: 15px;
+  height: 18px;
   width: 2px;
   border-radius: 5px;
   background-color: #808086;
@@ -1193,7 +1168,7 @@ tr {
 
 .options-container {
   font-size: 16px;
-  width: 100px;
+  width: 70px;
   display: flex;
   justify-content: space-between;
   align-items: center;

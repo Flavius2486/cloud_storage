@@ -41,18 +41,26 @@ const routes = [
       requiresAuth: true,
     },
   },
+  // {
+  //   path: "/public",
+  //   name: "public",
+  //   component: () => import("../views/PublicView.vue"),
+  //   meta: {
+  //     requiresAuth: true,
+  //   },
+  // },
   {
-    path: "/public",
-    name: "public",
-    component: () => import("../views/PublicView.vue"),
+    path: "/deleted",
+    name: "deleted",
+    component: () => import("../views/DeletedView.vue"),
     meta: {
       requiresAuth: true,
     },
   },
   {
-    path: "/deleted",
-    name: "deleted",
-    component: () => import("../views/DeletedView.vue"),
+    path: "/search/:query",
+    name: "search",
+    component: () => import("../views/SearchResultsView.vue"),
     meta: {
       requiresAuth: true,
     },

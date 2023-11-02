@@ -61,16 +61,19 @@
           @click="showModal($event)"
           >Folder</DropdownOption
         >
-        <DropdownOption
+        <!-- <DropdownOption
           :icon="['fas', 'folder-open']"
           :customClass="'modal-create-public-folder'"
           @click="showModal($event)"
           >Public Folder</DropdownOption
-        >
+        > -->
       </Dropdown>
     </div>
   </header>
-  <DataWrapper :data="$store.state.rootData" :page="'dashboard'"></DataWrapper>
+  <DataWrapper
+    :data="$store.state.dashboardData"
+    :page="'dashboard'"
+  ></DataWrapper>
   <FilesActionStatus
     :status="filesStatus"
     :numberOfFilesToUpload="filesToUpload"
