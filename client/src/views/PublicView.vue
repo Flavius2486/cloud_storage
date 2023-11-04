@@ -2,14 +2,38 @@
   <div class="public-view__header">
     <h1>Public</h1>
   </div>
-  <DataWrapper :data="$store.state.publicData" :page="'public'"></DataWrapper>
+  <DataWrapper
+    :data="data"
+    :page="'public'"
+    @update-data="updateData()"
+  ></DataWrapper>
 </template>
 
 <script>
 import DataWrapper from "@/components/dataWrapper";
+import fetchData from "@/utils/fetchData";
 
 export default {
   components: { DataWrapper },
+  data() {
+    return {
+      data: [],
+    };
+  },
+  created() {
+    this.updateData();
+  },
+  methods: {
+    updateData() {
+      fetchData("public")
+        .then((dataArray) => {
+          this.data = dataArray;
+        })
+        .catch((error) => {
+          console.error("Error:", error);
+        });
+    },
+  },
 };
 </script>
 

@@ -191,4 +191,22 @@ export default {
   height: 25px;
   z-index: 99999999;
 }
+
+@media screen and (max-width: 900px) {
+  .search-bar input {
+    width: 300px;
+  }
+}
+
+@media screen and (max-width: 700px) {
+  .search-bar input {
+    width: 200px;
+  }
+}
+
+@media screen and (max-width: 500px) {
+  .search-bar input {
+    width: 100px;
+  }
+}
 </style>

@@ -23,5 +23,7 @@ pnpm-debug.log*
 *.sw?
 *.env
 
-/client/node_modules
+*node_modules
+
+client/node_modules
 /backend/node_modules

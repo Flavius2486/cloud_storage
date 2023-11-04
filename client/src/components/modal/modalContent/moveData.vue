@@ -13,14 +13,13 @@
 
 <script>
 import axios from "axios";
-import fetchData from "@/utils/fetchData";
 import config from "@/config.json";
 
 import "@/components/modal/modalContent/style.css";
 
 export default {
   name: "move-data",
-  emits: ["hide-modal"],
+  emits: ["hide-modal", "update-data"],
   props: {
     data: {
       type: Object,
@@ -30,7 +29,8 @@ export default {
   },
   data() {
     return {
-      availablePaths: this.$store.state.folders,
+      availablePaths: [],
+      availablePathsCopy: [],
       selectedNewPath: { frontend_path: "", unique_path: "" },
     };
   },
@@ -61,7 +61,7 @@ export default {
             { withCredentials: true }
           )
           .then((response) => {
-            fetchData();
+            this.$emit("update-data");
             this.$emit("hide-modal", response.data);
           });
       }
@@ -69,11 +69,23 @@ export default {
   },
   watch: {
     data(newVal) {
-      this.availablePaths = this.$store.state.folders.filter((folder) => {
-        return !folder.unique_path
-          .split("/")
-          .includes(newVal.unique_identifier);
-      });
+      axios
+        .post(
+          `${config.BASE_URL}/fetch-data`,
+          {
+            accessToken: window.$cookies.get("accessToken"),
+            dataCategory: "folders",
+          },
+          { withCredentials: true }
+        )
+        .then((response) => {
+          this.availablePaths = response.data.dataArray;
+          this.availablePaths = this.availablePaths.filter((folder) => {
+            return !folder.unique_path
+              .split("/")
+              .includes(newVal.unique_identifier);
+          });
+        });
     },
   },
 };

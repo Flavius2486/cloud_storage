@@ -739,9 +739,10 @@ app.post("/reset-data", (req, res) => {
   }
 });
 
-app.get("/fetch-data", (req, res) => {
-  const user = getUser(req.cookies);
+app.post("/fetch-data", (req, res) => {
+  const user = getUser(req.body);
   if (user) {
+    const { dataCategory } = req.body;
     database.query(
       "SELECT * FROM data WHERE user_username=?",
       [user.username],
@@ -750,22 +751,8 @@ app.get("/fetch-data", (req, res) => {
         const currentTime = new Date();
         const oneWeekMills = 7 * 24 * 60 * 60 * 1000;
 
-        let starredData = [];
-        let publicData = [];
-        let recentData = [];
-        let deletedData = [];
-        let folders = [];
-        let rootData = [];
+        let dataArray = [];
         let usedMemory = 0;
-        let dataFound = false;
-        if (result.length > 0) {
-          dataFound = true;
-        }
-
-        folders[0] = {
-          frontend_path: "/",
-          unique_path: "",
-        };
 
         result.forEach((data) => {
           usedMemory += Number(data.size);
@@ -773,25 +760,24 @@ app.get("/fetch-data", (req, res) => {
           const fileLastAccessed = data.last_accessed;
           data.last_accessed = getFormatedDate(data.last_accessed);
           data.creation_date = getFormatedDate(data.creation_date);
-          if (data.deletion_date !== null) {
-            deletedData.push(data);
-          } else {
-            if (data.starred) {
-              starredData.push(data);
-            }
-            if (data.public) {
-              publicData.push(data);
-            }
-            if (data.frontend_path === "" && !data.public) {
-              rootData.push(data);
-            }
+          if (data.deletion_date === null) {
             if (
-              currentTime.getTime() - fileLastAccessed.getTime() <
-              oneWeekMills
+              dataCategory === "dashboard" &&
+              data.frontend_path === "" &&
+              !data.public
             ) {
-              recentData.push(data);
+              dataArray.push(data);
+            } else if (
+              dataCategory === "recents" &&
+              currentTime.getTime() - fileLastAccessed.getTime() < oneWeekMills
+            ) {
+              dataArray.push(data);
+            } else if (dataCategory === "starred" && data.starred) {
+              dataArray.push(data);
+            } else if (dataCategory === "public" && data.public) {
+              dataArray.push(data);
             }
-            if (data.type === "folder") {
+            if (data.type === "folder" && dataCategory === "folders") {
               const frontendPath =
                 data.frontend_path.length > 0 ? data.frontend_path + "/" : "";
               const uniquePath =
@@ -802,24 +788,25 @@ app.get("/fetch-data", (req, res) => {
                 frontend_path: "/" + frontendPath + data.name + "/",
                 unique_path: uniquePath + data.unique_identifier,
               };
-              folders.push(folder);
+              dataArray.push(folder);
             }
+          } else if (dataCategory === "deleted") {
+            dataArray.push(data);
           }
         });
         usedMemory = (usedMemory / Math.pow(1024, 3)).toFixed(2);
         const freeMemory = os.freemem().toFixed(2);
-        publicData = filterData(publicData);
-        starredData = filterData(starredData);
-        recentData = filterData(recentData);
-        deletedData = filterData(deletedData);
+        if (dataCategory === "folders") {
+          dataArray.unshift({
+            frontend_path: "/",
+            unique_path: "",
+          });
+        } else {
+          dataArray = filterData(dataArray);
+        }
         res.json({
-          dataFound: dataFound,
-          rootData: rootData,
-          folders: folders,
-          deletedData: deletedData,
-          recentData: recentData,
-          publicData: publicData,
-          starredData: starredData,
+          dataArray: dataArray,
+          dataFound: true,
           freeMemory: freeMemory,
           usedMemory: usedMemory,
         });

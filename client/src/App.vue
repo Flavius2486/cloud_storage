@@ -12,7 +12,7 @@
 <script>
 import sidebar from "@/components/sidebar/sidebar";
 import navbar from "@/components/navbar";
-import fetchData from "@/utils/fetchData";
+// import fetchData from "@/utils/fetchData";
 import refreshToken from "@/utils/refreshToken";
 import authoDeleteData from "@/utils/autoDeleteData";
 
@@ -55,7 +55,7 @@ export default {
           window.setInterval(() => {
             refreshToken();
           }, 1800000);
-          fetchData();
+          // fetchData();
         }
       },
     },

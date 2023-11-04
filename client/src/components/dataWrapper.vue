@@ -218,7 +218,9 @@
               <img v-if="file.type === 'file'" src="@/assets/file.png" />
               <img v-else src="@/assets/folder.png" />
             </div>
-            <p class="file-name">{{ file.name }}</p>
+            <p class="file-name">
+              {{ file.name }}
+            </p>
           </div>
         </th>
         <th>
@@ -272,6 +274,7 @@
     <RenameData
       :data="dataObjOpenedOptions"
       @hide-modal="hideModalTrigger"
+      @update-data="$emit('update-data')"
     ></RenameData>
   </Modal>
   <Modal
@@ -282,6 +285,7 @@
     <MoveData
       :data="dataObjOpenedOptions"
       @hide-modal="hideModalTrigger"
+      @update-data="$emit('update-data')"
     ></MoveData>
   </Modal>
   <Modal :title="'Detalies'" :customClass="'modal-data-detalies'" ref="Modal">
@@ -323,7 +327,6 @@
 </template>
 
 <script>
-import fetchData from "@/utils/fetchData";
 import config from "@/config.json";
 import axios from "axios";
 
@@ -358,7 +361,7 @@ export default {
       default: "",
     },
   },
-  emits: ["update-data"],
+  emits: ["update-data", "fetch-folder-data"],
   data() {
     return {
       filesSelection: false,
@@ -409,7 +412,7 @@ export default {
           dataBrackedNotation: "",
           action: () => {
             if (this.dataObjOpenedOptions.type === "folder") {
-              this.$emit("update-data");
+              this.$emit("fetch-folder-data");
               this.$router.replace({
                 name: "folderData",
                 params: {
@@ -577,7 +580,7 @@ export default {
           { withCredentials: true }
         )
         .then((response) => {
-          fetchData();
+          this.$emit("update-data");
           this.showMessageBox(response.data.message);
         })
         .catch((err) => {

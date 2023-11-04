@@ -4,7 +4,7 @@
     <p class="data-info"><b>Location:</b> {{ data.frontend_path }}</p>
     <p class="data-info"><b>Size:</b> {{ data.size }} KB</p>
     <p class="data-info"><b>Starred:</b> {{ data.starred }}</p>
-    <p class="data-info"><b>Public:</b> {{ data.public }}</p>
+    <!-- <p class="data-info"><b>Public:</b> {{ data.public }}</p> -->
     <p class="data-info"><b>Type:</b> {{ data.type }}</p>
     <p class="data-info"><b>Last accessed:</b> {{ data.last_accessed }}</p>
     <p class="data-info"><b>Creation date:</b> {{ data.creation_date }}</p>

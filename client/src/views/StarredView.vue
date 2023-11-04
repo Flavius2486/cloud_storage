@@ -2,14 +2,38 @@
   <div class="starred-view__header">
     <h1>Starred</h1>
   </div>
-  <DataWrapper :data="$store.state.starredData" :page="'starred'"></DataWrapper>
+  <DataWrapper
+    :data="data"
+    :page="'starred'"
+    @update-data="updateData()"
+  ></DataWrapper>
 </template>
 
 <script>
 import DataWrapper from "@/components/dataWrapper";
+import fetchData from "@/utils/fetchData";
 
 export default {
   components: { DataWrapper },
+  data() {
+    return {
+      data: [],
+    };
+  },
+  created() {
+    this.updateData();
+  },
+  methods: {
+    updateData() {
+      fetchData("starred")
+        .then((dataArray) => {
+          this.data = dataArray;
+        })
+        .catch((error) => {
+          console.error("Error:", error);
+        });
+    },
+  },
 };
 </script>
 

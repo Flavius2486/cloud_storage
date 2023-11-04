@@ -71,8 +71,9 @@
     </div>
   </header>
   <DataWrapper
-    :data="$store.state.dashboardData"
+    :data="data"
     :page="'dashboard'"
+    @update-data="updateData()"
   ></DataWrapper>
   <FilesActionStatus
     :status="filesStatus"
@@ -128,6 +129,7 @@ export default {
   },
   data() {
     return {
+      data: [],
       resumable: null,
       filesStatus: null,
       filesToUpload: 0,
@@ -137,6 +139,9 @@ export default {
       filesGroup: [],
       input: "file",
     };
+  },
+  created() {
+    this.updateData();
   },
   mounted() {
     this.resumable = new Resumable({
@@ -155,7 +160,7 @@ export default {
     });
 
     this.resumable.on("fileSuccess", () => {
-      fetchData();
+      //fetchData();
       this.uploadedFiles++;
       if (this.uploadedFiles === this.filesToUpload) {
         this.filesStatus = "success";
@@ -187,6 +192,15 @@ export default {
     });
   },
   methods: {
+    updateData() {
+      fetchData("dashboard")
+        .then((dataArray) => {
+          this.data = dataArray;
+        })
+        .catch((error) => {
+          console.error("Error:", error);
+        });
+    },
     hideModalTrigger(response) {
       this.$refs.Modal.hideModal();
       this.$refs.MessageBox.showMessage(response.message);

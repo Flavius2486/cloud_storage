@@ -4,12 +4,6 @@ export default createStore({
   state: {
     isAuthenticated: false,
     dataReceived: false,
-    dashboardData: [],
-    nestedData: [],
-    deletedData: [],
-    recentData: [],
-    publicData: [],
-    starredData: [],
     freeMemory: 0,
     usedMemory: 0,
   },
@@ -18,13 +12,7 @@ export default createStore({
     setAuthentication(state, data) {
       state.isAuthenticated = data.auth;
     },
-    setData(state, data) {
-      state.dashboardData = data.data.dashboardData;
-      state.folders = data.data.folders;
-      state.deletedData = data.data.deletedData;
-      state.recentData = data.data.recentData;
-      state.publicData = data.data.publicData;
-      state.starredData = data.data.starredData;
+    setMemoryStatus(state, data) {
       state.freeMemory = data.data.freeMemory;
       state.usedMemory = data.data.usedMemory;
     },

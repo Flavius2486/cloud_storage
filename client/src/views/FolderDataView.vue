@@ -5,6 +5,7 @@
     </p>
   </div>
   <DataWrapper
+    @fetch-folder-data="fetchFolderData"
     @update-data="fetchFolderData"
     :data="data"
     :page="'folder'"
@@ -29,7 +30,6 @@ export default {
   },
   methods: {
     fetchFolderData() {
-      this.data = [];
       axios
         .post(
           `${config.BASE_URL}/folder-data`,
@@ -49,6 +49,11 @@ export default {
   },
   mounted() {
     this.fetchFolderData();
+  },
+  watch: {
+    data() {
+      this.fetchFolderData();
+    },
   },
 };
 </script>

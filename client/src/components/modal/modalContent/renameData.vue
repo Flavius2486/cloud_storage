@@ -12,14 +12,13 @@
 
 <script>
 import axios from "axios";
-import fetchData from "@/utils/fetchData";
 import config from "@/config.json";
 
 import "@/components/modal/modalContent/style.css";
 
 export default {
   name: "rename-data",
-  emits: ["hide-modal"],
+  emits: ["hide-modal", "update-data"],
   props: {
     data: {
       type: Object,
@@ -44,8 +43,8 @@ export default {
             { withCredentials: true }
           )
           .then((response) => {
-            fetchData();
             this.$emit("hide-modal", response.data);
+            this.$emit("update-data");
           });
       }
     },

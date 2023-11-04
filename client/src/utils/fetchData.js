@@ -2,24 +2,31 @@ import axios from "axios";
 import store from "@/store";
 import config from "@/config.json";
 
-const fetchData = () => {
-  axios
-    .get(`${config.BASE_URL}/fetch-data`, { withCredentials: true })
-    .then((response) => {
-      store.commit("setDataStatus", { state: true });
-      store.commit("setData", {
-        data: {
-          dashboardData: response.data.rootData,
-          folders: response.data.folders,
-          deletedData: response.data.deletedData,
-          recentData: response.data.recentData,
-          publicData: response.data.publicData,
-          starredData: response.data.starredData,
-          freeMemory: response.data.freeMemory,
-          usedMemory: response.data.usedMemory,
-        },
-      });
+const fetchData = async (dataCategory) => {
+  store.commit("setDataStatus", { state: false });
+  try {
+    const response = await axios.post(
+      `${config.BASE_URL}/fetch-data`,
+      {
+        accessToken: window.$cookies.get("accessToken"),
+        dataCategory: dataCategory,
+      },
+      { withCredentials: true }
+    );
+
+    store.commit("setDataStatus", { state: true });
+    store.commit("setMemoryStatus", {
+      data: {
+        freeMemory: response.data.freeMemory,
+        usedMemory: response.data.usedMemory,
+      },
     });
+
+    return response.data.dataArray;
+  } catch (error) {
+    console.error("Error fetching data:", error);
+    throw error;
+  }
 };
 
 export default fetchData;

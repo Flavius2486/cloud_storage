@@ -2,14 +2,38 @@
   <div class="recents-view__header">
     <h1>Recents</h1>
   </div>
-  <DataWrapper :data="$store.state.recentData" :page="'recents'"></DataWrapper>
+  <DataWrapper
+    :data="data"
+    :page="'recents'"
+    @update-data="updateData()"
+  ></DataWrapper>
 </template>
 
 <script>
 import DataWrapper from "@/components/dataWrapper";
+import fetchData from "@/utils/fetchData";
 
 export default {
   components: { DataWrapper },
+  data() {
+    return {
+      data: [],
+    };
+  },
+  created() {
+    this.updateData();
+  },
+  methods: {
+    updateData() {
+      fetchData("recents")
+        .then((dataArray) => {
+          this.data = dataArray;
+        })
+        .catch((error) => {
+          console.error("Error:", error);
+        });
+    },
+  },
 };
 </script>
 

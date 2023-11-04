@@ -23,14 +23,13 @@
 
 <script>
 import axios from "axios";
-import fetchData from "@/utils/fetchData";
 import config from "@/config.json";
 
 import "@/components/modal/modalContent/style.css";
 
 export default {
   name: "create-spublic-folder",
-  emits: ["hide-modal"],
+  emits: ["hide-modal", "update-data"],
   data() {
     return {
       selectedPublicFolderPath: "",
@@ -73,7 +72,7 @@ export default {
             ),
           })
           .then((response) => {
-            fetchData();
+            this.$emit("update-data");
             this.$emit("hide-modal", response.data);
           })
           .catch((err) => {

@@ -2,14 +2,38 @@
   <div class="deleted-view__header">
     <h1>Deleted</h1>
   </div>
-  <DataWrapper :data="$store.state.deletedData" :page="'deleted'"></DataWrapper>
+  <DataWrapper
+    :data="data"
+    :page="'deleted'"
+    @update-data="updateData()"
+  ></DataWrapper>
 </template>
 
 <script>
 import DataWrapper from "@/components/dataWrapper";
+import fetchData from "@/utils/fetchData";
 
 export default {
   components: { DataWrapper },
+  data() {
+    return {
+      data: [],
+    };
+  },
+  created() {
+    this.updateData();
+  },
+  methods: {
+    updateData() {
+      fetchData("deleted")
+        .then((dataArray) => {
+          this.data = dataArray;
+        })
+        .catch((error) => {
+          console.error("Error:", error);
+        });
+    },
+  },
 };
 </script>
 
