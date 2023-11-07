@@ -1371,6 +1371,84 @@ app.post("/recover", (req, res) => {
 //   }
 // });
 
+app.post("/search", (req, res) => {
+  const user = getUser(req.cookies);
+  if (user) {
+    const { query } = req.body;
+    let dataArray = [];
+    database.query(
+      "SELECT * FROM data WHERE user_username = ?",
+      [user.username],
+      (err, result) => {
+        if (err) throw err;
+        let category = query[0];
+        let folderName = query[1];
+        let searchString = query[2];
+        let searchArray = query[2].split("-");
+        let currentTime = new Date();
+        let oneWeekMills = 7 * 24 * 60 * 60 * 1000;
+        dataArray = result.filter((obj) => {
+          if (
+            category.toLowerCase() === "deleted" &&
+            obj.deletion_date !== null
+          )
+            return true;
+          else if (obj.deletion_date === null) {
+            if (category.toLowerCase() === "starred" && obj.starred === 1)
+              return true;
+            else if (
+              category.toLowerCase() === "recents" &&
+              currentTime.getTime() - obj.last_accessed.getTime() < oneWeekMills
+            )
+              return true;
+            else if (
+              category.toLowerCase() === "dashboard" &&
+              obj.deletion_date === null
+            ) {
+              return true;
+            }
+          }
+          return false;
+        });
+        dataArray = dataArray.filter((obj) => {
+          if (category.toLowerCase() !== "dashboard" && folderName === "/") {
+            let notNested = true;
+            notNested = !dataArray.find((obj2) =>
+              obj.unique_path.split("/").includes(obj2.unique_identifier)
+            );
+            if (notNested) return true;
+          }
+          if (
+            (folderName === "/" && obj.frontend_path === "") ||
+            folderName.toLowerCase() === "all" ||
+            obj.frontend_path
+              .toLowerCase()
+              .split("/")
+              .includes(folderName.toLowerCase())
+          )
+            return true;
+          return false;
+        });
+        searchArray.forEach((word) => {
+          dataArray = dataArray.filter((obj) => {
+            if (obj.name.toLowerCase().includes(word)) return true;
+            return false;
+          });
+        });
+        let tmpObj;
+        dataArray.forEach((obj, index) => {
+          if (obj.name.toLowerCase().includes(searchString.toLowerCase())) {
+            tmpObj = obj;
+            dataArray.splice(index, 1);
+            dataArray.unshift(tmpObj);
+          }
+        });
+        res.json({ data: dataArray });
+      }
+    );
+  } else res.json({ message: "Unauthorized user!" });
+});
+
 app.listen(3002, () => {
   console.log("Server listening on port 3002");
 });
