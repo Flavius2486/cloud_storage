@@ -46,13 +46,30 @@ export default {
           console.log(err);
         });
     },
+
+    updateFolderLastAccesse() {
+      axios
+        .post(
+          `${config.BASE_URL}/update-last-access`,
+          {
+            folderIdentifier: this.$route.params.folderIdentifier,
+          },
+          { withCredentials: true }
+        )
+        .then(() => {})
+        .catch((err) => {
+          console.log(err);
+        });
+    },
   },
   mounted() {
     this.fetchFolderData();
+    this.updateFolderLastAccesse();
   },
   watch: {
     data() {
       this.fetchFolderData();
+      this.updateFolderLastAccesse();
     },
   },
 };

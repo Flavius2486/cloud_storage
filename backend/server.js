@@ -1371,6 +1371,27 @@ app.post("/recover", (req, res) => {
 //   }
 // });
 
+/*----------------Update folder last access time----------------*/
+
+app.post("/update-last-access", (req, res) => {
+  const user = getUser(req.cookies);
+  if (user) {
+    const { folderIdentifier } = req.body;
+    database.query(
+      "UPDATE data SET last_accessed = ? WHERE user_username = ? AND unique_identifier = ? ",
+      [new Date(), user.username, folderIdentifier],
+      (err) => {
+        if (err) throw err;
+        res.json({ message: "Last accessed dat updated succesfully!" });
+      }
+    );
+  } else {
+    res.json({ message: "Unauthorized user!" });
+  }
+});
+
+/*----------------Search data system----------------*/
+
 app.post("/search", (req, res) => {
   const user = getUser(req.cookies);
   if (user) {
