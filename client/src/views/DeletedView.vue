@@ -47,4 +47,10 @@ export default {
   color: #333343;
   font-size: 35px;
 }
+
+@media screen and (max-width: 1150px) {
+  .deleted-view__header {
+    padding: 15px;
+  }
+}
 </style>

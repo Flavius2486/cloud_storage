@@ -1,8 +1,21 @@
 <template>
   <div class="navbar">
     <div class="navbar__left-side--group">
-      <div class="theme-toggle">
-        <fa :icon="['far', 'sun']" />
+      <div class="side-bar-btn" @click.stop="$emit('show-sidebar')">
+        <fa :icon="['fas', 'bars']" />
+      </div>
+      <div class="info-modal-btn" @click="togleInfoModal()">
+        <fa :icon="['far', 'circle-question']" />
+      </div>
+      <div class="info-modal" v-show="showInfoModal">
+        <p>
+          In oreder to search you must use a specific syntax:<br />
+          (1) category: dashboard, recents, starred or deleted <br />
+          (2) folder name or "all" everything or "/" root
+          <br />
+          (3) search string <br />
+          in the end you will have: (1) | (2) | (3)
+        </p>
       </div>
     </div>
     <div class="search-bar">
@@ -47,6 +60,7 @@ import config from "@/config.json";
 
 export default {
   name: "nav-bar",
+  emits: ["show-sidebar"],
   components: {
     Dropdown,
     DropdownOption,
@@ -55,9 +69,13 @@ export default {
   data() {
     return {
       searchQuery: "",
+      showInfoModal: false,
     };
   },
   methods: {
+    togleInfoModal() {
+      this.showInfoModal = !this.showInfoModal;
+    },
     showDropdown(event) {
       const dropdowns = document.querySelectorAll(".dropdown");
       dropdowns.forEach((dropdown) => {
@@ -133,21 +151,39 @@ export default {
 
 .navbar__left-side--group {
   margin-left: 25px;
+  display: flex;
 }
 
 .navbar__right-side--group {
   margin-right: 25px;
 }
 
-.theme-toggle {
+.info-modal-btn,
+.side-bar-btn {
   background-color: #ebeaef;
   color: #363745;
   border-radius: 50%;
-  height: 35px;
-  width: 35px;
+  height: 30px;
+  width: 30px;
   display: grid;
   place-items: center;
-  font-size: 18px;
+  font-size: 16px;
+}
+
+.side-bar-btn {
+  display: none;
+}
+
+.info-modal {
+  position: absolute;
+  z-index: 3;
+  padding: 10px;
+  border-radius: 10px;
+  background-color: #ffffff;
+  box-shadow: rgba(0, 0, 0, 0.24) 0px 3px 8px;
+  margin-right: 20px;
+  margin-top: 35px;
+  font-size: 17px;
 }
 
 .search-bar {
@@ -192,21 +228,49 @@ export default {
   z-index: 99999999;
 }
 
+@media screen and (max-width: 1150px) {
+  .navbar__left-side--group {
+    display: flex;
+    justify-content: space-between;
+    margin-left: 5px;
+    width: 70px;
+  }
+  .side-bar-btn {
+    display: grid;
+  }
+  .info-modal {
+    margin-left: 40px;
+    font-size: 16px;
+  }
+}
+
 @media screen and (max-width: 900px) {
   .search-bar input {
     width: 300px;
+  }
+  .info-modal {
+    font-size: 15px;
   }
 }
 
 @media screen and (max-width: 700px) {
   .search-bar input {
-    width: 200px;
+    width: 250px;
   }
 }
 
 @media screen and (max-width: 500px) {
   .search-bar input {
-    width: 100px;
+    width: 180px;
+  }
+  .info-modal {
+    font-size: 14px;
+  }
+}
+
+@media screen and (max-width: 380px) {
+  .search-bar input {
+    width: 130px;
   }
 }
 </style>

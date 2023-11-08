@@ -1,7 +1,12 @@
 <template>
   <aside class="sidebar">
     <header class="sidebar-header">
-      <div class="title"><b>Personal Cloud</b></div>
+      <div class="title">
+        <b>Personal Cloud</b>
+        <div class="close-sidebar-btn" @click="closeSidebar()">
+          <fa :icon="['fas', 'xmark']" />
+        </div>
+      </div>
       <div v-for="(button, index) in sidebarBtns" :key="index" class="nav-btns">
         <SidebarButton
           @click="setActivePage(index)"
@@ -79,6 +84,10 @@ export default {
     };
   },
   methods: {
+    closeSidebar() {
+      const sidebar = document.querySelector(".sidebar");
+      sidebar.style.display = "none";
+    },
     setActivePage(index) {
       this.sidebarBtns.forEach((button) => {
         button.active = false;
@@ -123,6 +132,13 @@ export default {
   color: #f9f9fb;
   font-size: 25px;
   margin: 0 auto 15px 25px;
+  display: flex;
+}
+
+.close-sidebar-btn {
+  margin-right: 0px;
+  font-size: 22px;
+  display: none;
 }
 
 .divider {
@@ -174,5 +190,50 @@ export default {
   color: #9b9cab;
   margin-left: 50px;
   margin-bottom: 5px;
+}
+
+@media screen and (min-width: 1150px) {
+  .sidebar {
+    display: flex !important;
+  }
+}
+
+@media screen and (max-width: 1150px) {
+  .sidebar {
+    display: none;
+    background: linear-gradient(
+      to bottom,
+      #1c2034,
+      #1c263b,
+      #183248,
+      #183a4c,
+      #243a50,
+      #2f354f,
+      #20284c,
+      #1b2146,
+      #191b34
+    );
+    position: absolute;
+    z-index: 5;
+    padding: 10px 0;
+    width: 220px;
+    border-radius: 10px;
+    border-top-left-radius: 0;
+    padding-right: 10px;
+  }
+  .title {
+    display: flex;
+    justify-content: space-between;
+    font-size: 20px;
+    margin-top: 0px;
+  }
+
+  .close-sidebar-btn {
+    display: block;
+  }
+
+  .divider {
+    display: none;
+  }
 }
 </style>

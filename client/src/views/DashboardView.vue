@@ -302,6 +302,13 @@ export default {
   font-size: 35px;
 }
 
+@media screen and (max-width: 1150px) {
+  .dashboard-view__header {
+    padding: 15px;
+    background-color: #f7f8fb;
+  }
+}
+
 .dashboard-view__header--buttons {
   margin-top: 10px;
   margin-bottom: 10px;

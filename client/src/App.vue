@@ -1,9 +1,9 @@
 <template>
   <router-view v-if="!$store.state.isAuthenticated" />
-  <sidebar v-if="$store.state.isAuthenticated"></sidebar>
+  <sidebar class="sidebar" v-if="$store.state.isAuthenticated"></sidebar>
   <main v-if="$store.state.isAuthenticated" class="centering-container">
     <div class="main-container" @scroll="hideDropdowns">
-      <navbar></navbar>
+      <navbar @show-sidebar="openSidebar"></navbar>
       <router-view />
     </div>
   </main>
@@ -23,10 +23,19 @@ export default {
     navbar,
   },
   data() {
-    return {};
+    return {
+      showSidebar: false,
+    };
   },
   methods: {
+    openSidebar() {
+      const sidebar = document.querySelector(".sidebar");
+      sidebar.style.display = "flex";
+    },
     hideDropdowns() {
+      const sidebar = document.querySelector(".sidebar");
+      sidebar.style.display = "none";
+      if (this.showSidebar) this.showSidebar = false;
       const dropdowns = document.querySelectorAll(".dropdown");
       dropdowns.forEach((dropdown) => {
         dropdown.classList.add("hidden");
@@ -55,7 +64,6 @@ export default {
           window.setInterval(() => {
             refreshToken();
           }, 1800000);
-          // fetchData();
         }
       },
     },
@@ -125,5 +133,14 @@ export default {
 
 input:focus {
   outline-width: 0;
+}
+
+@media screen and (max-width: 1150px) {
+  .main-container,
+  .centering-container {
+    width: 100%;
+    height: 100%;
+    border-radius: 0;
+  }
 }
 </style>

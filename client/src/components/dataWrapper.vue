@@ -582,6 +582,7 @@ export default {
         .then((response) => {
           this.$emit("update-data");
           this.showMessageBox(response.data.message);
+          this.cancelfilesSelection();
         })
         .catch((err) => {
           console.log(err);
@@ -1138,6 +1139,12 @@ tr {
   }
 }
 
+@media screen and (max-width: 350px) {
+  .file-name {
+    max-width: 150px;
+  }
+}
+
 .file-name-table {
   max-width: 150px;
 }
@@ -1175,5 +1182,36 @@ tr {
   display: flex;
   justify-content: space-between;
   align-items: center;
+}
+
+@media screen and (max-width: 1150px) {
+  .actions-box {
+    position: absolute;
+    margin-left: calc(50% - 85px);
+    bottom: 0px;
+  }
+}
+
+@media screen and (max-width: 850px) {
+  .files-last-accesed-column,
+  .file-last-accesed {
+    display: none;
+  }
+  .files-table--head .select-files-btn {
+    margin-right: -69%;
+  }
+  .content {
+    padding: 0 10px;
+  }
+}
+
+@media screen and (max-width: 530px) {
+  .files-size-column,
+  .file-size {
+    display: none;
+  }
+  .change-files-wrapper-format-btn {
+    display: none;
+  }
 }
 </style>

@@ -84,5 +84,6 @@ export default {
 .header > p {
   color: #333343;
   font-size: 30px;
+  word-wrap: break-word;
 }
 </style>
