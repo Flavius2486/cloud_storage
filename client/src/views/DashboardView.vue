@@ -91,13 +91,13 @@
   >
     <CreatePrivateFolder @hide-modal="hideModalTrigger"></CreatePrivateFolder>
   </Modal>
-  <Modal
+  <!-- <Modal
     :title="'Create public folder'"
     :customClass="'modal-create-public-folder'"
     ref="Modal"
   >
     <CreatePublicFolder @hide-modal="hideModalTrigger"></CreatePublicFolder>
-  </Modal>
+  </Modal> -->
 </template>
 
 <script>
@@ -109,7 +109,7 @@ import DataWrapper from "@/components/dataWrapper";
 import FilesActionStatus from "@/components/notifications/filesActionStatus.vue";
 import Modal from "@/components/modal/modal.vue";
 import CreatePrivateFolder from "@/components/modal/modalContent/createPrivateFolder.vue";
-import CreatePublicFolder from "@/components/modal/modalContent/createPublicFolder.vue";
+// import CreatePublicFolder from "@/components/modal/modalContent/createPublicFolder.vue";
 import MessageBox from "@/components/notifications/messageBox.vue";
 
 import fetchData from "@/utils/fetchData";
@@ -124,7 +124,7 @@ export default {
     FilesActionStatus,
     Modal,
     CreatePrivateFolder,
-    CreatePublicFolder,
+    // CreatePublicFolder,
     MessageBox,
   },
   data() {

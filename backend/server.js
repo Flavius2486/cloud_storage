@@ -1193,13 +1193,16 @@ function deleteData(user, data) {
           reject(err);
         } else {
           if (data.type === "file") {
-            fs.unlink("./uploads/files/" + data.unique_identifier, (err) => {
-              if (err) {
-                reject(err);
-              } else {
-                resolve();
+            fs.unlink(
+              `./uploads/${user.username}/files/${data.unique_identifier}`,
+              (err) => {
+                if (err) {
+                  reject(err);
+                } else {
+                  resolve();
+                }
               }
-            });
+            );
           } else {
             resolve();
           }
@@ -1299,7 +1302,7 @@ app.post("/delete", (req, res) => {
                       .split("/")
                       .includes(data.unique_identifier)
                   ) {
-                    deleteData(user, resultData).catch(() => {
+                    deleteData(user, resultData).catch((err) => {
                       // return res.json({
                       //   message: `Error deleting the ${data.type}!`,
                       // });

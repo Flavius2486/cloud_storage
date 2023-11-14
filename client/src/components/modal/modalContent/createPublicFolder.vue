@@ -7,10 +7,10 @@
       @change="hideError()"
     />
   </div>
-  <div>
+  <div @click="getAvailablePaths()">
     <p class="modal-subtitle">Location</p>
     <v-select
-      :options="$store.state.folders"
+      :options="availablePaths"
       class="folder-path-selector selector"
       label="frontend_path"
       value="unique_path"
@@ -33,6 +33,7 @@ export default {
   data() {
     return {
       selectedPublicFolderPath: "",
+      availablePaths: [],
     };
   },
   methods: {
@@ -41,6 +42,20 @@ export default {
         ".public-folder-name-input"
       );
       folderNameInput.style.borderColor = "#CDCDD6";
+    },
+    getAvailablePaths() {
+      axios
+        .post(
+          `${config.BASE_URL}/fetch-data`,
+          {
+            accessToken: window.$cookies.get("accessToken"),
+            dataCategory: "folders",
+          },
+          { withCredentials: true }
+        )
+        .then((response) => {
+          this.availablePaths = response.data.dataArray;
+        });
     },
     createFolder() {
       const folderNameInput = document.querySelector(

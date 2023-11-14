@@ -319,7 +319,7 @@
   </div>
   <div
     v-if="$store.state.dataReceived && data.length == 0"
-    class="receiving-data-status"
+    class="receiving-data-status message"
     style="font-size: 20px"
   >
     <h1>No data found</h1>
@@ -882,6 +882,10 @@ body {
   width: 100%;
   overflow: hidden;
   color: #19172e;
+}
+
+.receiving-data-status h1 {
+  font-size: 25px;
 }
 
 .content {
