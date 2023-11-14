@@ -9,11 +9,11 @@ const fetchData = async (dataCategory) => {
       `${config.BASE_URL}/fetch-data`,
       {
         accessToken: window.$cookies.get("accessToken"),
+        refreshToken: window.$cookies.get("refreshToken"),
         dataCategory: dataCategory,
       },
       { withCredentials: true }
     );
-
     store.commit("setDataStatus", { state: true });
     store.commit("setMemoryStatus", {
       data: {

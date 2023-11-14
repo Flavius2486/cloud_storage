@@ -7,6 +7,7 @@ const resetData = () => {
       `${config.BASE_URL}/reset-data`,
       {
         accessToken: window.$cookies.get("accessToken"),
+        refreshToken: window.$cookies.get("refreshToken"),
       },
       { withCredentials: true }
     )

@@ -44,7 +44,6 @@ function getUser(cookies) {
     );
     return decodedToken;
   } catch (error) {
-    console.error("Error decoding token:", error.message);
     return null;
   }
 }
@@ -867,7 +866,6 @@ app.post("/fetch-data", (req, res) => {
 
         result.forEach((data) => {
           usedMemory += Number(data.size);
-          data.size = (data.size / 1024).toFixed(2);
           const fileLastAccessed = data.last_accessed;
           data.last_accessed = getFormatedDate(data.last_accessed);
           data.creation_date = getFormatedDate(data.creation_date);
@@ -905,8 +903,12 @@ app.post("/fetch-data", (req, res) => {
             dataArray.push(data);
           }
         });
-        usedMemory = (usedMemory / Math.pow(1024, 3)).toFixed(2);
-        const freeMemory = os.freemem().toFixed(2);
+        usedMemory = usedMemory / Math.pow(1024, 3);
+        const freeMemory = (
+          os.freemem() / Math.pow(1024, 3) +
+          usedMemory
+        ).toFixed(2);
+        usedMemory = usedMemory.toFixed(2);
         if (dataCategory === "folders") {
           dataArray.unshift({
             frontend_path: "/",

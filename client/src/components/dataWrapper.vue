@@ -304,7 +304,7 @@
         @click="updateSelectedData('public')"
         :icon="['fas', 'users-slash']"
       ></fa> -->
-      <fa @click="downloadSelectedData()" :icon="['fas', 'download']"></fa>
+      <fa @click="downloadMultipleData()" :icon="['fas', 'download']"></fa>
       <fa
         @click="updateSelectedData('delete')"
         :icon="['far', 'trash-can']"
@@ -501,7 +501,7 @@ export default {
           actionType: "function",
           show: true,
           dataBrackedNotation: "",
-          action: () => this.downloadData(),
+          action: () => this.downloadData(this.dataObjOpenedOptions),
         },
         {
           text: "Recover",
@@ -590,13 +590,12 @@ export default {
         });
     },
 
-    downloadData() {
-      const data = this.dataObjOpenedOptions;
+    downloadData(data) {
       axios
         .post(
           `${config.BASE_URL}/download`,
           {
-            data: this.dataObjOpenedOptions,
+            data: data,
           },
           { withCredentials: true }
         )
@@ -775,6 +774,18 @@ export default {
         }
       });
       return selectedDataArray;
+    },
+
+    downloadMultipleData() {
+      const dataToDownload = this.getSelectedData();
+      if (dataToDownload.length > 0) {
+        dataToDownload.forEach((dataObj) => {
+          this.downloadData(dataObj);
+        });
+        this.cancelfilesSelection();
+      } else {
+        this.showMessageBox("Please select at least 1 folder/file.");
+      }
     },
 
     updateSelectedData(route) {
@@ -1196,6 +1207,7 @@ tr {
   user-select: none;
   color: #252531;
   font-size: 17px;
+  background-color: #ffffff;
 }
 
 .line {
@@ -1213,6 +1225,7 @@ tr {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  background-color: white;
 }
 
 @media screen and (max-width: 1150px) {

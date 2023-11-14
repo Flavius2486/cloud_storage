@@ -50,6 +50,7 @@ export default {
           `${config.BASE_URL}/fetch-data`,
           {
             accessToken: window.$cookies.get("accessToken"),
+            refreshToken: window.$cookies.get("refreshToken"),
             dataCategory: "folders",
           },
           { withCredentials: true }
@@ -81,6 +82,7 @@ export default {
         axios
           .post(`${config.BASE_URL}/create-folder`, {
             accessToken: window.$cookies.get("accessToken"),
+            refreshToken: window.$cookies.get("refreshToken"),
             isPublic: false,
             name: folderName,
             uniquePath: this.selectedPrivateFolderPath.unique_path,
