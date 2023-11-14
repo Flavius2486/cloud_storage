@@ -304,7 +304,7 @@
         @click="updateSelectedData('public')"
         :icon="['fas', 'users-slash']"
       ></fa> -->
-      <fa @click="downloadMultipleData()" :icon="['fas', 'download']"></fa>
+      <fa @click="downloadSelectedData()" :icon="['fas', 'download']"></fa>
       <fa
         @click="updateSelectedData('delete')"
         :icon="['far', 'trash-can']"
@@ -501,7 +501,7 @@ export default {
           actionType: "function",
           show: true,
           dataBrackedNotation: "",
-          action: () => {},
+          action: () => this.downloadData(),
         },
         {
           text: "Recover",
@@ -581,8 +581,36 @@ export default {
         )
         .then((response) => {
           this.$emit("update-data");
+          if (this.page === "folder") this.$emit("fetch=folder-data");
           this.showMessageBox(response.data.message);
           this.cancelfilesSelection();
+        })
+        .catch((err) => {
+          console.log(err);
+        });
+    },
+
+    downloadData() {
+      const data = this.dataObjOpenedOptions;
+      axios
+        .post(
+          `${config.BASE_URL}/download`,
+          {
+            data: this.dataObjOpenedOptions,
+          },
+          { withCredentials: true }
+        )
+        .then((response) => {
+          if (response.data.message) {
+            this.showMessageBox(response.data.message);
+          } else {
+            const blob = new Blob([response.data], { type: "application/zip" });
+
+            const link = document.createElement("a");
+            link.href = window.URL.createObjectURL(blob);
+            link.download = data.name;
+            link.click();
+          }
         })
         .catch((err) => {
           console.log(err);
@@ -759,7 +787,6 @@ export default {
         this.showMessageBox("Please select at least 1 folder/file.");
       }
     },
-    downloadMultipleData() {},
 
     filesSelectionToggle() {
       //set files selection to true/false if the selection button is pressed

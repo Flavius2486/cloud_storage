@@ -9,6 +9,7 @@ import multer from "multer";
 import fs from "fs";
 import path from "path";
 import os from "os";
+import archiver from "archiver";
 
 import database from "./database/connection.js";
 
@@ -688,6 +689,116 @@ app.post("/upload", upload.array("file"), (req, res) => {
     res.json({ message: "An error occured" });
     console.log(err);
   });
+});
+
+/*---------------------------------------------------------*\
+                  Download system
+/*---------------------------------------------------------*/
+
+async function moveFile(obj, user, data) {
+  return new Promise((resolve, reject) => {
+    if (obj.unique_path.split("/").includes(data.unique_identifier)) {
+      const targetPath = `./uploads/${user.username}/tmp_folder/${obj.frontend_path}/`;
+      if (!fs.existsSync(targetPath)) {
+        fs.mkdirSync(targetPath);
+      }
+      if (obj.type === "file") {
+        fs.copyFile(
+          `./uploads/${user.username}/files/${obj.unique_identifier}`,
+          targetPath + obj.name,
+          (err) => {
+            if (err) {
+              console.error(`Error moving the file: ${err}`);
+              reject(err);
+            } else {
+              resolve();
+            }
+          }
+        );
+      } else {
+        resolve();
+      }
+    } else {
+      resolve();
+    }
+  });
+}
+
+const moveAllFiles = (result, user, data) => {
+  const promises = result.map((obj) => moveFile(obj, user, data));
+  return Promise.all(promises);
+};
+
+function zipDirectory(sourceDir, outPath) {
+  return new Promise((resolve, reject) => {
+    const archive = archiver("zip", { zlib: { level: 9 } });
+    const stream = fs.createWriteStream(outPath);
+
+    archive
+      .directory(sourceDir, false)
+      .on("error", (err) => {
+        reject(err);
+      })
+      .pipe(stream);
+
+    stream.on("close", () => {
+      resolve();
+    });
+
+    archive.finalize();
+  });
+}
+
+app.post("/download", (req, res) => {
+  const user = getUser(req.cookies);
+  if (user) {
+    const { data } = req.body;
+    if (data.type === "file") {
+      res.sendFile(
+        path.resolve(`uploads/${user.username}/files/${data.unique_identifier}`)
+      );
+    } else {
+      database.query(
+        "SELECT * FROM data WHERE user_username=?",
+        [user.username],
+        (err, result) => {
+          if (err) throw err;
+          moveAllFiles(result, user, data)
+            .then(() => {
+              zipDirectory(
+                `uploads/${user.username}/tmp_folder/${data.name}`,
+                `uploads/${user.username}/tmp_folder/${data.name}.zip`
+              )
+                .then(() => {
+                  fs.rm(
+                    `uploads/${user.username}/tmp_folder/${data.name}`,
+                    { recursive: true },
+                    (err) => {
+                      if (err) {
+                        console.error(
+                          `Error deleting folder: ${err.message}. User: ${user.username}`
+                        );
+                      }
+                    }
+                  );
+                  res.setHeader("Content-Type", "application/zip");
+                  res.sendFile(
+                    path.resolve(
+                      `uploads/${user.username}/tmp_folder/${data.name}.zip`
+                    )
+                  );
+                })
+                .catch((err) => console.error(err));
+            })
+            .catch((error) => {
+              console.error(`Error moving files: ${error}`);
+            });
+        }
+      );
+    }
+  } else {
+    res.send({ message: "Unauthorized user!" });
+  }
 });
 
 /*---------------------------------------------------------*\

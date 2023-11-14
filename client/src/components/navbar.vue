@@ -14,7 +14,7 @@
           (2) folder name or "all" everything or "/" root
           <br />
           (3) search string <br />
-          in the end you will have: (1) | (2) | (3)
+          In the end you will have: (1) | (2) | (3)
         </p>
       </div>
     </div>

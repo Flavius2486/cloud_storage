@@ -160,7 +160,7 @@ export default {
     });
 
     this.resumable.on("fileSuccess", () => {
-      //fetchData();
+      this.updateData();
       this.uploadedFiles++;
       if (this.uploadedFiles === this.filesToUpload) {
         this.filesStatus = "success";

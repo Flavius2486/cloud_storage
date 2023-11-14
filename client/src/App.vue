@@ -33,8 +33,10 @@ export default {
       sidebar.style.display = "flex";
     },
     hideDropdowns() {
-      const sidebar = document.querySelector(".sidebar");
-      sidebar.style.display = "none";
+      if (this.$store.state.isAuthenticated) {
+        const sidebar = document.querySelector(".sidebar");
+        sidebar.style.display = "none";
+      }
       if (this.showSidebar) this.showSidebar = false;
       const dropdowns = document.querySelectorAll(".dropdown");
       dropdowns.forEach((dropdown) => {

@@ -159,6 +159,7 @@ export default {
 
 .login-box .user-box {
   position: relative;
+  margin-bottom: 40px;
 }
 
 /*-----------Form inputs---------------*/
@@ -168,7 +169,7 @@ export default {
   padding: 8px 0;
   font-size: 16px;
   color: #fff;
-  margin-bottom: 40px;
+  margin-bottom: 0px;
   border: none;
   border-bottom: 1px solid #fff;
   outline: none;
@@ -229,8 +230,6 @@ export default {
 }
 
 .input-error {
-  margin-top: -37px;
-  margin-bottom: 19px;
   font-size: 13px;
   color: rgb(228, 48, 48);
 }
