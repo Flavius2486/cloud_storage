@@ -36,13 +36,54 @@ app.use(express.urlencoded({ limit: Infinity, extended: true }));
                  General functions
 /*---------------------------------------------------------*/
 
+function validateRefreshToken(token) {
+  return new Promise((resolve, reject) => {
+    database.query("SELECT token FROM refresh_tokens", (err, tokens) => {
+      if (err) {
+        reject(err);
+        return;
+      }
+
+      let isValid = tokens.some((tokenObj) => tokenObj.token === token);
+
+      if (isValid) {
+        jwt.verify(token, process.env.REFRESH_TOKEN, (err, user) => {
+          if (err) isValid = false;
+        });
+      }
+
+      resolve(isValid);
+    });
+  });
+}
+
+function validateAccessToken(accessToken) {
+  return new Promise((resolve, reject) => {
+    try {
+      const decodedToken = jwt.verify(accessToken, process.env.ACCESS_TOKEN);
+      resolve(decodedToken);
+    } catch (error) {
+      resolve(null);
+    }
+  });
+}
+
 function getUser(cookies) {
   return new Promise((resolve, reject) => {
     validateRefreshToken(cookies.refreshToken).then((isValid) => {
       if (isValid) {
         validateAccessToken(cookies.accessToken).then((user) => {
           if (user) resolve(user);
-          else reject();
+          else {
+            database.query(
+              "DELETE FROM refresh_tokens WHERE token=?",
+              [cookies.refreshToken],
+              (err) => {
+                if (err) console.log(err);
+              }
+            );
+            reject();
+          }
         });
       } else {
         reject();
@@ -115,6 +156,16 @@ function storeData(data, type) {
   }
 }
 
+function updateLastAccessedDate(uniqueIdentifier, user) {
+  database.query(
+    "UPDATE data SET last_accessed = ? WHERE unique_identifier = ? AND user_username = ?",
+    [new Date(), uniqueIdentifier, user.username],
+    (err, result) => {
+      if (err) throw err;
+    }
+  );
+}
+
 function capitalizeFirstLetter(str) {
   return str.charAt(0).toUpperCase() + str.slice(1);
 }
@@ -122,38 +173,6 @@ function capitalizeFirstLetter(str) {
 /*---------------------------------------------------------*\
                   Authentication system
 /*---------------------------------------------------------*/
-
-function validateRefreshToken(token) {
-  return new Promise((resolve, reject) => {
-    database.query("SELECT token FROM refresh_tokens", (err, tokens) => {
-      if (err) {
-        reject(err);
-        return;
-      }
-
-      let isValid = tokens.some((tokenObj) => tokenObj.token === token);
-
-      if (isValid) {
-        jwt.verify(token, process.env.REFRESH_TOKEN, (err, user) => {
-          if (err) isValid = false;
-        });
-      }
-
-      resolve(isValid);
-    });
-  });
-}
-
-function validateAccessToken(accessToken) {
-  return new Promise((resolve, reject) => {
-    try {
-      const decodedToken = jwt.verify(accessToken, process.env.ACCESS_TOKEN);
-      resolve(decodedToken);
-    } catch (error) {
-      resolve(null);
-    }
-  });
-}
 
 app.post("/refresh-token", (req, res) => {
   const { refreshToken, accessToken } = req.cookies;
@@ -251,7 +270,7 @@ app.post("/login", (req, res) => {
               };
 
               if (!fs.existsSync(`./uploads/${user.username}/`)) {
-                // If it doesn't exist, create the folder
+                // If it doesn't exist, create the folders
                 fs.mkdirSync(`./uploads/${user.username}/`);
                 fs.mkdirSync(`./uploads/${user.username}/files`);
                 fs.mkdirSync(`./uploads/${user.username}/chunks`);
@@ -309,16 +328,15 @@ function generateAccessToken(user) {
 
 app.post("/verify-auth", (req, res) => {
   if (req.cookies.accessToke === null || req.cookies.refreshToken === null) {
-    return res.json({ auth: false, email: null });
+    res.json({ auth: false, email: null });
   } else {
-    validateRefreshToken(req.cookies.refreshToken).then((isValid) => {
-      if (isValid) {
-        validateAccessToken(req.cookies.accessToken).then((user) => {
-          if (user) return res.json({ auth: true, email: user.email });
-          else return res.json({ auth: false, email: null });
-        });
-      } else return res.json({ auth: false, email: null });
-    });
+    getUser(req.cookies)
+      .then((user) => {
+        res.json({ auth: true, email: user.email });
+      })
+      .catch(() => {
+        res.json({ auth: false, email: null });
+      });
   }
 });
 
@@ -775,6 +793,7 @@ app.post("/download", (req, res) => {
   getUser(req.cookies)
     .then((user) => {
       const { data } = req.body;
+      updateLastAccessedDate(data.unique_identifier, user);
       if (data.type === "file") {
         res.sendFile(
           path.resolve(
@@ -990,6 +1009,7 @@ app.post("/folder-data", (req, res) => {
   getUser(req.cookies)
     .then((user) => {
       const { folderIdentifier } = req.body;
+      updateLastAccessedDate(folderIdentifier, user);
       database.query(
         "SELECT * FROM data WHERE user_username=?",
         [user.username],
@@ -1036,6 +1056,7 @@ app.post("/rename-data", (req, res) => {
   getUser(req.cookies)
     .then((user) => {
       const { newName, data } = req.body;
+      updateLastAccessedDate(data.unique_identifier, user);
       if (newName.length === 0) {
         res.json({
           message: `${capitalizeFirstLetter(data.type)} name cannot be empty!`,
@@ -1073,6 +1094,7 @@ app.post("/set-new-path", (req, res) => {
   getUser(req.cookies)
     .then((user) => {
       const { targetFolder, dataToMove } = req.body;
+      updateLastAccessedDate(dataToMove.unique_identifier, user);
       //select all data
       database.query(
         "SELECT * FROM data WHERE user_username=?",
@@ -1177,6 +1199,7 @@ app.post("/starred", (req, res) => {
   getUser(req.cookies)
     .then((user) => {
       const { condition, data } = req.body;
+      updateLastAccessedDate(data.unique_identifier, user);
       if (data.type === "folder") {
         database.query(
           "SELECT * FROM data WHERE user_username = ?",
@@ -1550,7 +1573,7 @@ app.post("/update-last-access", (req, res) => {
         [new Date(), user.username, folderIdentifier],
         (err) => {
           if (err) throw err;
-          res.json({ message: "Last accessed dat updated succesfully!" });
+          res.json({ message: "Last accessed date updated succesfully!" });
         }
       );
     })
