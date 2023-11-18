@@ -4,10 +4,10 @@
       <div class="side-bar-btn" @click.stop="$emit('show-sidebar')">
         <fa :icon="['fas', 'bars']" />
       </div>
-      <div class="info-modal-btn" @click="togleInfoModal()">
+      <div class="info-modal-btn" @click.stop="togleInfoModal()">
         <fa :icon="['far', 'circle-question']" />
       </div>
-      <div class="info-modal" v-show="showInfoModal">
+      <div class="info-modal" @click.stop v-show="showInfoModal">
         <p>
           In oreder to search you must use a specific syntax:<br />
           (1) category: dashboard, recents, starred or deleted <br />
@@ -76,6 +76,9 @@ export default {
     togleInfoModal() {
       this.showInfoModal = !this.showInfoModal;
     },
+    hideInfoModal() {
+      this.showInfoModal = false;
+    },
     showDropdown(event) {
       const dropdowns = document.querySelectorAll(".dropdown");
       dropdowns.forEach((dropdown) => {
@@ -88,11 +91,7 @@ export default {
     },
     logout() {
       axios
-        .post(
-          `${config.BASE_URL}/logout`,
-          {  },
-          { withCredentials: true }
-        )
+        .post(`${config.BASE_URL}/logout`, {}, { withCredentials: true })
         .then(() => {
           this.$router.go();
         })

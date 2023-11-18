@@ -3,7 +3,7 @@
   <sidebar class="sidebar" v-if="$store.state.isAuthenticated"></sidebar>
   <main v-if="$store.state.isAuthenticated" class="centering-container">
     <div class="main-container" @scroll="hideDropdowns">
-      <navbar @show-sidebar="openSidebar"></navbar>
+      <navbar ref="navbar" @show-sidebar="openSidebar"></navbar>
       <router-view />
     </div>
   </main>
@@ -46,9 +46,11 @@ export default {
       asets.forEach((aset) => {
         aset.style.backgroundColor = "#f7f8fb";
       });
+      //hide info modal
+      this.$refs.navbar.hideInfoModal();
     },
   },
-  mounted: function () {
+  mounted() {
     refreshToken();
   },
   created: function () {

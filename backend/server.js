@@ -275,6 +275,19 @@ app.post("/login", (req, res) => {
                 fs.mkdirSync(`./uploads/${user.username}/files`);
                 fs.mkdirSync(`./uploads/${user.username}/chunks`);
                 fs.mkdirSync(`./uploads/${user.username}/tmp_folder`);
+              } else {
+                fs.rm(
+                  `uploads/${user.username}/tmp_folder`,
+                  { recursive: true },
+                  (err) => {
+                    if (err) {
+                      console.error(
+                        `Error deleting folder: ${err.message}. User: ${user.username}`
+                      );
+                    }
+                    fs.mkdirSync(`./uploads/${user.username}/tmp_folder`);
+                  }
+                );
               }
 
               const accessToken = generateAccessToken(user);
