@@ -5,10 +5,7 @@ const refreshToken = () => {
   axios
     .post(
       `${config.BASE_URL}/refresh-token`,
-      {
-        accessToken: window.$cookies.get("accessToken"),
-        refreshToken: window.$cookies.get("refreshToken"),
-      },
+      {},
       {
         withCredentials: true,
       }

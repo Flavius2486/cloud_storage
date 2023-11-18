@@ -73,8 +73,6 @@ export default {
         .post(
           `${config.BASE_URL}/fetch-data`,
           {
-            accessToken: window.$cookies.get("accessToken"),
-            refreshToken: window.$cookies.get("refreshToken"),
             dataCategory: "folders",
           },
           { withCredentials: true }

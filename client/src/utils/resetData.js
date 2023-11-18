@@ -3,14 +3,7 @@ import config from "@/config.json";
 
 const resetData = () => {
   axios
-    .post(
-      `${config.BASE_URL}/reset-data`,
-      {
-        accessToken: window.$cookies.get("accessToken"),
-        refreshToken: window.$cookies.get("refreshToken"),
-      },
-      { withCredentials: true }
-    )
+    .post(`${config.BASE_URL}/reset-data`, {}, { withCredentials: true })
     .then(() => {})
     .catch((err) => {
       throw err;

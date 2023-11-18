@@ -90,7 +90,7 @@ export default {
       axios
         .post(
           `${config.BASE_URL}/logout`,
-          { token: window.$cookies.get("refreshToken") },
+          {  },
           { withCredentials: true }
         )
         .then(() => {

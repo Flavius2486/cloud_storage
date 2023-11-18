@@ -4,13 +4,9 @@ import config from "@/config.json";
 
 const isAuthenticated = async () => {
   try {
-    const response = await axios.get(
+    const response = await axios.post(
       `${config.BASE_URL}/verify-auth`,
-      {
-        headers: {
-          authorization: window.$cookies.get("accessToken"),
-        },
-      },
+      {},
       {
         withCredentials: true,
       }

@@ -37,15 +37,18 @@ app.use(express.urlencoded({ limit: Infinity, extended: true }));
 /*---------------------------------------------------------*/
 
 function getUser(cookies) {
-  try {
-    const decodedToken = jwt.verify(
-      cookies.accessToken,
-      process.env.ACCESS_TOKEN
-    );
-    return decodedToken;
-  } catch (error) {
-    return null;
-  }
+  return new Promise((resolve, reject) => {
+    validateRefreshToken(cookies.refreshToken).then((isValid) => {
+      if (isValid) {
+        validateAccessToken(cookies.accessToken).then((user) => {
+          if (user) resolve(user);
+          else reject();
+        });
+      } else {
+        reject();
+      }
+    });
+  });
 }
 
 function generateUniqueId() {
@@ -120,7 +123,7 @@ function capitalizeFirstLetter(str) {
                   Authentication system
 /*---------------------------------------------------------*/
 
-function searchRefreshToken(token) {
+function validateRefreshToken(token) {
   return new Promise((resolve, reject) => {
     database.query("SELECT token FROM refresh_tokens", (err, tokens) => {
       if (err) {
@@ -128,17 +131,32 @@ function searchRefreshToken(token) {
         return;
       }
 
-      const refreshTokenExists = tokens.some(
-        (tokenObj) => tokenObj.token === token
-      );
+      let isValid = tokens.some((tokenObj) => tokenObj.token === token);
 
-      resolve(refreshTokenExists);
+      if (isValid) {
+        jwt.verify(token, process.env.REFRESH_TOKEN, (err, user) => {
+          if (err) isValid = false;
+        });
+      }
+
+      resolve(isValid);
     });
   });
 }
 
+function validateAccessToken(accessToken) {
+  return new Promise((resolve, reject) => {
+    try {
+      const decodedToken = jwt.verify(accessToken, process.env.ACCESS_TOKEN);
+      resolve(decodedToken);
+    } catch (error) {
+      resolve(null);
+    }
+  });
+}
+
 app.post("/refresh-token", (req, res) => {
-  const { refreshToken, accessToken } = req.body;
+  const { refreshToken, accessToken } = req.cookies;
   //check if the tokens exist
   if (refreshToken === null || accessToken === null) {
     if (refreshToken !== null) {
@@ -154,45 +172,39 @@ app.post("/refresh-token", (req, res) => {
       );
     }
   } else {
-    //select all tokens
-    database.query("SELECT token FROM refresh_tokens", (err, tokens) => {
-      if (err) console.log(err);
-      //search the token
-      searchRefreshToken(refreshToken).then((exists) => {
-        if (exists) {
-          jwt.verify(refreshToken, process.env.REFRESH_TOKEN, (err, user) => {
-            if (err) {
-              return res.json({ auth: false });
-            } else {
-              jwt.verify(accessToken, process.env.ACCESS_TOKEN, (err) => {
-                if (err) return res.json({ auth: false });
-                else {
-                  const accessToken = generateAccessToken({
-                    username: user.username,
-                    email: user.email,
-                  });
+    validateRefreshToken(refreshToken).then((isValid) => {
+      if (isValid) {
+        validateAccessToken(accessToken).then((user) => {
+          if (user) {
+            const accessToken = generateAccessToken({
+              username: user.username,
+              email: user.email,
+            });
 
-                  res.cookie("accessToken", accessToken, {
-                    expires: new Date(Date.now() + 1000 * 60 * 32),
-                  });
+            res.cookie("accessToken", accessToken, {
+              expires: new Date(Date.now() + 1000 * 60 * 32),
+              secure: true,
+              httpOnly: true,
+            });
 
-                  res.json({ auth: true });
-                }
-              });
-            }
-          });
-        }
-      });
+            res.json({ auth: true });
+          } else {
+            return res.json({ auth: false });
+          }
+        });
+      } else {
+        return res.json({ auth: false });
+      }
     });
   }
 });
 
 app.post("/logout", (req, res) => {
-  const { token } = req.body;
+  const token = req.cookies.refreshToken;
   //see if the token exists
-  searchRefreshToken(token)
-    .then((exists) => {
-      if (exists) {
+  validateRefreshToken(token)
+    .then((isValid) => {
+      if (isValid) {
         //delete it from the database
         database.query(
           "DELETE FROM refresh_tokens WHERE token=?",
@@ -243,6 +255,7 @@ app.post("/login", (req, res) => {
                 fs.mkdirSync(`./uploads/${user.username}/`);
                 fs.mkdirSync(`./uploads/${user.username}/files`);
                 fs.mkdirSync(`./uploads/${user.username}/chunks`);
+                fs.mkdirSync(`./uploads/${user.username}/tmp_folder`);
               }
 
               const accessToken = generateAccessToken(user);
@@ -258,9 +271,16 @@ app.post("/login", (req, res) => {
 
               res.cookie("accessToken", accessToken, {
                 expires: new Date(Date.now() + 1000 * 60 * 32),
+                secure: true,
+                httpOnly: true,
               });
 
-              res.cookie("refreshToken", refreshToken, {});
+              res.cookie("refreshToken", refreshToken, { httpOnly: true });
+              res.header(
+                "Access-Control-Allow-Origin",
+                "http://localhost:3001"
+              ); // Adjust the origin to match your Vue.js app
+              res.header("Access-Control-Allow-Credentials", true);
 
               res.json({ accessToken: accessToken, auth: true });
             } else {
@@ -287,18 +307,19 @@ function generateAccessToken(user) {
   });
 }
 
-app.get("/verify-auth", (req, res) => {
-  const token = req.headers.authorization;
-  if (token === null) {
+app.post("/verify-auth", (req, res) => {
+  if (req.cookies.accessToke === null || req.cookies.refreshToken === null) {
     return res.json({ auth: false, email: null });
+  } else {
+    validateRefreshToken(req.cookies.refreshToken).then((isValid) => {
+      if (isValid) {
+        validateAccessToken(req.cookies.accessToken).then((user) => {
+          if (user) return res.json({ auth: true, email: user.email });
+          else return res.json({ auth: false, email: null });
+        });
+      } else return res.json({ auth: false, email: null });
+    });
   }
-
-  jwt.verify(token, process.env.ACCESS_TOKEN, (err, email, username) => {
-    if (err) {
-      return res.json({ auth: false, email: null });
-    }
-    res.json({ auth: true, email: email, username: username });
-  });
 });
 
 /*---------------------------------------------------------*\
@@ -484,68 +505,70 @@ async function combineChunks(chunkFilePaths, fileId, user) {
 
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
-    const user = getUser(req.cookies);
-    if (user) {
-      cb(null, `./uploads/${user.username}/chunks/`);
-    } else {
-      cb(null, null);
-    }
+    getUser(req.cookies)
+      .then((user) => {
+        cb(null, `./uploads/${user.username}/chunks/`);
+      })
+      .catch(() => {
+        cb(null, null);
+      });
   },
   filename: (req, file, cb) => {
-    const user = getUser(req.cookies);
-    if (user) {
-      const chunkName =
-        req.body.resumableIdentifier +
-        "-" +
-        (Number(req.body.resumableChunkNumber) - 1);
-      //set variable to false to let the program know that a chunk was not added(default)
-      let chunkAdded = false;
-      //verify if are any chunks in the files array
-      if (filesArray.length > 0) {
-        //find the file that match the current resumable unique identifier
-        filesArray.forEach((fileData) => {
-          if (
-            fileData.uniqueIdentifier === req.body.resumableIdentifier &&
-            fileData.user === user.username &&
-            user !== null
-          ) {
-            //if it found a match add the resumable chunk in the chunks array on th chunk number position - 1
-            fileData.chunks[Number(req.body.resumableChunkNumber) - 1] =
-              chunkName;
-            chunkAdded = true;
-          }
-        });
-      }
-      //if it didn't find a resumabke identifier match or the files array is empty add a new object in the files array with the necessarry data
-      if (!chunkAdded) {
-        //if the file has a relative path adn the relative path array is longer that 1 means the file in in a folder
-        let fileRelativePath = req.body.resumableRelativePath.split("/");
-        if (fileRelativePath) {
-          //delete the last element(the file name) from the path
-          fileRelativePath.pop();
-        } else fileRelativePath = [];
-        filesArray.push({
-          name: req.body.resumableFilename,
-          uniqueName: null,
-          uniqueIdentifier: req.body.resumableIdentifier,
-          totalChunks: Number(req.body.resumableTotalChunks),
-          path: fileRelativePath,
-          uniquePath: [],
-          size: Number(req.body.resumableTotalSize),
-          public: false,
-          status: 0,
-          chunks: [],
-          user: user.username,
-        });
-        //add the cunk
-        filesArray[filesArray.length - 1].chunks[
-          Number(req.body.resumableChunkNumber) - 1
-        ] = chunkName;
-      }
-      cb(null, chunkName);
-    } else {
-      cb(null, null);
-    }
+    getUser(req.cookies)
+      .then((user) => {
+        const chunkName =
+          req.body.resumableIdentifier +
+          "-" +
+          (Number(req.body.resumableChunkNumber) - 1);
+        //set variable to false to let the program know that a chunk was not added(default)
+        let chunkAdded = false;
+        //verify if are any chunks in the files array
+        if (filesArray.length > 0) {
+          //find the file that match the current resumable unique identifier
+          filesArray.forEach((fileData) => {
+            if (
+              fileData.uniqueIdentifier === req.body.resumableIdentifier &&
+              fileData.user === user.username &&
+              user !== null
+            ) {
+              //if it found a match add the resumable chunk in the chunks array on th chunk number position - 1
+              fileData.chunks[Number(req.body.resumableChunkNumber) - 1] =
+                chunkName;
+              chunkAdded = true;
+            }
+          });
+        }
+        //if it didn't find a resumabke identifier match or the files array is empty add a new object in the files array with the necessarry data
+        if (!chunkAdded) {
+          //if the file has a relative path adn the relative path array is longer that 1 means the file in in a folder
+          let fileRelativePath = req.body.resumableRelativePath.split("/");
+          if (fileRelativePath) {
+            //delete the last element(the file name) from the path
+            fileRelativePath.pop();
+          } else fileRelativePath = [];
+          filesArray.push({
+            name: req.body.resumableFilename,
+            uniqueName: null,
+            uniqueIdentifier: req.body.resumableIdentifier,
+            totalChunks: Number(req.body.resumableTotalChunks),
+            path: fileRelativePath,
+            uniquePath: [],
+            size: Number(req.body.resumableTotalSize),
+            public: false,
+            status: 0,
+            chunks: [],
+            user: user.username,
+          });
+          //add the cunk
+          filesArray[filesArray.length - 1].chunks[
+            Number(req.body.resumableChunkNumber) - 1
+          ] = chunkName;
+        }
+        cb(null, chunkName);
+      })
+      .catch(() => {
+        cb(null, null);
+      });
   },
 });
 
@@ -568,113 +591,113 @@ app.post("/upload", upload.array("file"), (req, res) => {
         filesArray[i].status === 0 &&
         !missingChunks
       ) {
-        const user = getUser(req.cookies);
-        if (user) {
-          //set the file status to uploading
-          filesArray[i].status = 1;
+        getUser(req.cookies)
+          .then((user) => {
+            //set the file status to uploading
+            filesArray[i].status = 1;
 
-          let fileId;
-          if (filesArray[i].name.match(/\.([^.]+)$/)) {
-            fileId =
-              generateUniqueId() +
-              "." +
-              filesArray[i].name.match(/\.([^.]+)$/)[1];
-          } else {
-            fileId = generateUniqueId();
-          }
+            let fileId;
+            if (filesArray[i].name.match(/\.([^.]+)$/)) {
+              fileId =
+                generateUniqueId() +
+                "." +
+                filesArray[i].name.match(/\.([^.]+)$/)[1];
+            } else {
+              fileId = generateUniqueId();
+            }
 
-          if (filesArray[i].path.length > 0) {
-            //get the folders from files relative path
-            createFolders(i, user);
-            //remove the last element (the current folder name) from the path array
-            getFoldersPath();
-            //se file unique path by checnking the folders path with the files path
-            setFileUniquePath(i);
-            //reset the variables after uploading all the files
-            uploadFolders(user);
-          }
+            if (filesArray[i].path.length > 0) {
+              //get the folders from files relative path
+              createFolders(i, user);
+              //remove the last element (the current folder name) from the path array
+              getFoldersPath();
+              //se file unique path by checnking the folders path with the files path
+              setFileUniquePath(i);
+              //reset the variables after uploading all the files
+              uploadFolders(user);
+            }
 
-          //check if the path is not empty to prevent getting error
-          filesArray[i].uniqueName = fileId;
-          filesArray[i].path =
-            filesArray[i].path.length > 0 ? filesArray[i].path.join("/") : "";
+            //check if the path is not empty to prevent getting error
+            filesArray[i].uniqueName = fileId;
+            filesArray[i].path =
+              filesArray[i].path.length > 0 ? filesArray[i].path.join("/") : "";
 
-          //check if the path is not empty to prevent getting error
-          filesArray[i].uniquePath =
-            filesArray[i].uniquePath.length > 0
-              ? filesArray[i].uniquePath.join("/")
-              : "";
+            //check if the path is not empty to prevent getting error
+            filesArray[i].uniquePath =
+              filesArray[i].uniquePath.length > 0
+                ? filesArray[i].uniquePath.join("/")
+                : "";
 
-          await combineChunks(
-            filesArray[i].chunks,
-            filesArray[i].uniqueName,
-            user
-          )
-            .then(() => {
-              //delete the added file
-              storeData(filesArray[i], "file");
-              filesArray.splice(i, 1);
-              i--;
-              let firstUserFile = true;
-              //got trough received files array
-              for (
-                let numberOfReceivedFilesIndex = 0;
-                numberOfReceivedFilesIndex < filesArray.length;
-                numberOfReceivedFilesIndex++
-              ) {
-                //if the user from the received files array matches the user tha is curently uploading increase the received files for that user
-                if (
-                  numberOfReceivedFiles[numberOfReceivedFilesIndex] &&
-                  numberOfReceivedFiles[numberOfReceivedFilesIndex].user ===
-                    user.username
+            combineChunks(filesArray[i].chunks, filesArray[i].uniqueName, user)
+              .then(() => {
+                //delete the added file
+                storeData(filesArray[i], "file");
+                filesArray.splice(i, 1);
+                i--;
+                let firstUserFile = true;
+                //got trough received files array
+                for (
+                  let numberOfReceivedFilesIndex = 0;
+                  numberOfReceivedFilesIndex < filesArray.length;
+                  numberOfReceivedFilesIndex++
                 ) {
-                  numberOfReceivedFiles[numberOfReceivedFilesIndex]
-                    .receivedFiles++;
-                  firstUserFile = false;
-                }
-              }
-              //if the user is uploading his first file push a new object
-              if (firstUserFile) {
-                numberOfReceivedFiles.push({
-                  user: user.username,
-                  receivedFiles: 1,
-                  totalFiles: Number(req.headers.numberoffiles),
-                });
-              }
-              //go again trough the uploaded files array
-              for (
-                let numberOfReceivedFilesIndex = 0;
-                numberOfReceivedFilesIndex < filesArray.length;
-                numberOfReceivedFilesIndex++
-              ) {
-                //if the user has received all the files delete all the unecessarry data
-                if (
-                  numberOfReceivedFiles[numberOfReceivedFilesIndex] &&
-                  numberOfReceivedFiles[numberOfReceivedFilesIndex]
-                    .receivedFiles ===
+                  //if the user from the received files array matches the user tha is curently uploading increase the received files for that user
+                  if (
+                    numberOfReceivedFiles[numberOfReceivedFilesIndex] &&
+                    numberOfReceivedFiles[numberOfReceivedFilesIndex].user ===
+                      user.username
+                  ) {
                     numberOfReceivedFiles[numberOfReceivedFilesIndex]
-                      .totalFiles &&
-                  numberOfReceivedFiles[numberOfReceivedFilesIndex].user ===
-                    user.username
-                ) {
-                  foldersArray = resetData(foldersArray, user);
-                  filesArray = resetData(filesArray, user);
-                  uploadedFoldersArray = resetData(uploadedFoldersArray, user);
-                  prevRelativePath = resetData(prevRelativePath, user);
-                  numberOfReceivedFiles = resetData(
-                    numberOfReceivedFiles,
-                    user
-                  );
+                      .receivedFiles++;
+                    firstUserFile = false;
+                  }
                 }
-              }
-              res.send("File uploaded successfully");
-            })
-            .catch((error) => {
-              console.error("Error combining chunks:", error);
-            });
-        } else {
-          return res.status(401).json({ error: "Unauthorized user" });
-        }
+                //if the user is uploading his first file push a new object
+                if (firstUserFile) {
+                  numberOfReceivedFiles.push({
+                    user: user.username,
+                    receivedFiles: 1,
+                    totalFiles: Number(req.headers.numberoffiles),
+                  });
+                }
+                //go again trough the uploaded files array
+                for (
+                  let numberOfReceivedFilesIndex = 0;
+                  numberOfReceivedFilesIndex < filesArray.length;
+                  numberOfReceivedFilesIndex++
+                ) {
+                  //if the user has received all the files delete all the unecessarry data
+                  if (
+                    numberOfReceivedFiles[numberOfReceivedFilesIndex] &&
+                    numberOfReceivedFiles[numberOfReceivedFilesIndex]
+                      .receivedFiles ===
+                      numberOfReceivedFiles[numberOfReceivedFilesIndex]
+                        .totalFiles &&
+                    numberOfReceivedFiles[numberOfReceivedFilesIndex].user ===
+                      user.username
+                  ) {
+                    foldersArray = resetData(foldersArray, user);
+                    filesArray = resetData(filesArray, user);
+                    uploadedFoldersArray = resetData(
+                      uploadedFoldersArray,
+                      user
+                    );
+                    prevRelativePath = resetData(prevRelativePath, user);
+                    numberOfReceivedFiles = resetData(
+                      numberOfReceivedFiles,
+                      user
+                    );
+                  }
+                }
+                res.send("File uploaded successfully");
+              })
+              .catch((error) => {
+                console.error("Error combining chunks:", error);
+              });
+          })
+          .catch(() => {
+            return res.status(401).json({ error: "Unauthorized user" });
+          });
       }
       if (
         filesArray[i] &&
@@ -749,55 +772,58 @@ function zipDirectory(sourceDir, outPath) {
 }
 
 app.post("/download", (req, res) => {
-  const user = getUser(req.cookies);
-  if (user) {
-    const { data } = req.body;
-    if (data.type === "file") {
-      res.sendFile(
-        path.resolve(`uploads/${user.username}/files/${data.unique_identifier}`)
-      );
-    } else {
-      database.query(
-        "SELECT * FROM data WHERE user_username=?",
-        [user.username],
-        (err, result) => {
-          if (err) throw err;
-          moveAllFiles(result, user, data)
-            .then(() => {
-              zipDirectory(
-                `uploads/${user.username}/tmp_folder/${data.name}`,
-                `uploads/${user.username}/tmp_folder/${data.name}.zip`
-              )
-                .then(() => {
-                  fs.rm(
-                    `uploads/${user.username}/tmp_folder/${data.name}`,
-                    { recursive: true },
-                    (err) => {
-                      if (err) {
-                        console.error(
-                          `Error deleting folder: ${err.message}. User: ${user.username}`
-                        );
+  getUser(req.cookies)
+    .then((user) => {
+      const { data } = req.body;
+      if (data.type === "file") {
+        res.sendFile(
+          path.resolve(
+            `uploads/${user.username}/files/${data.unique_identifier}`
+          )
+        );
+      } else {
+        database.query(
+          "SELECT * FROM data WHERE user_username=?",
+          [user.username],
+          (err, result) => {
+            if (err) throw err;
+            moveAllFiles(result, user, data)
+              .then(() => {
+                zipDirectory(
+                  `uploads/${user.username}/tmp_folder/${data.name}`,
+                  `uploads/${user.username}/tmp_folder/${data.name}.zip`
+                )
+                  .then(() => {
+                    fs.rm(
+                      `uploads/${user.username}/tmp_folder/${data.name}`,
+                      { recursive: true },
+                      (err) => {
+                        if (err) {
+                          console.error(
+                            `Error deleting folder: ${err.message}. User: ${user.username}`
+                          );
+                        }
                       }
-                    }
-                  );
-                  res.setHeader("Content-Type", "application/zip");
-                  res.sendFile(
-                    path.resolve(
-                      `uploads/${user.username}/tmp_folder/${data.name}.zip`
-                    )
-                  );
-                })
-                .catch((err) => console.error(err));
-            })
-            .catch((error) => {
-              console.error(`Error moving files: ${error}`);
-            });
-        }
-      );
-    }
-  } else {
-    res.send({ message: "Unauthorized user!" });
-  }
+                    );
+                    res.setHeader("Content-Type", "application/zip");
+                    res.sendFile(
+                      path.resolve(
+                        `uploads/${user.username}/tmp_folder/${data.name}.zip`
+                      )
+                    );
+                  })
+                  .catch((err) => console.error(err));
+              })
+              .catch((error) => {
+                console.error(`Error moving files: ${error}`);
+              });
+          }
+        );
+      }
+    })
+    .catch(() => {
+      res.send({ message: "Unauthorized user!" });
+    });
 });
 
 /*---------------------------------------------------------*\
@@ -805,23 +831,24 @@ app.post("/download", (req, res) => {
 /*---------------------------------------------------------*/
 
 app.post("/create-folder", (req, res) => {
-  const user = getUser(req.body);
-  if (user !== null) {
-    const { name, isPublic, frontendPath, uniquePath } = req.body;
-    const data = {
-      name: name,
-      uniqueName: generateUniqueId(),
-      path: frontendPath,
-      uniquePath: uniquePath,
-      size: 0,
-      public: isPublic,
-      user: user.username,
-    };
-    storeData(data, "folder");
-    res.json({ message: "Folder created successfully" });
-  } else {
-    res.json({ message: "Unauthorized user" });
-  }
+  getUser(req.cookies)
+    .then((user) => {
+      const { name, isPublic, frontendPath, uniquePath } = req.body;
+      const data = {
+        name: name,
+        uniqueName: generateUniqueId(),
+        path: frontendPath,
+        uniquePath: uniquePath,
+        size: 0,
+        public: isPublic,
+        user: user.username,
+      };
+      storeData(data, "folder");
+      res.json({ message: "Folder created successfully" });
+    })
+    .catch(() => {
+      res.json({ message: "Unauthorized user" });
+    });
 });
 
 /*---------------------------------------------------------*\
@@ -838,94 +865,101 @@ function resetData(data, user) {
 }
 
 app.post("/reset-data", (req, res) => {
-  const user = getUser(req.body);
-  if (user) {
-    foldersArray = resetData(foldersArray, user);
-    filesArray = resetData(filesArray, user);
-    uploadedFoldersArray = resetData(uploadedFoldersArray, user);
-    prevRelativePath = resetData(prevRelativePath, user);
-    numberOfReceivedFiles = resetData(numberOfReceivedFiles, user);
-    res.json({ message: "The data has been reseted" });
-  }
+  getUser(req.cookies)
+    .then((user) => {
+      foldersArray = resetData(foldersArray, user);
+      filesArray = resetData(filesArray, user);
+      uploadedFoldersArray = resetData(uploadedFoldersArray, user);
+      prevRelativePath = resetData(prevRelativePath, user);
+      numberOfReceivedFiles = resetData(numberOfReceivedFiles, user);
+      res.json({ message: "The data has been reseted" });
+    })
+    .catch(() => {
+      res.json({ message: "Unauthorized user" });
+    });
 });
 
 app.post("/fetch-data", (req, res) => {
-  const user = getUser(req.body);
-  if (user) {
-    const { dataCategory } = req.body;
-    database.query(
-      "SELECT * FROM data WHERE user_username=?",
-      [user.username],
-      (err, result) => {
-        if (err) console.log(err);
-        const currentTime = new Date();
-        const oneWeekMills = 7 * 24 * 60 * 60 * 1000;
+  getUser(req.cookies)
+    .then((user) => {
+      const { dataCategory } = req.body;
+      database.query(
+        "SELECT * FROM data WHERE user_username=?",
+        [user.username],
+        (err, result) => {
+          if (err) console.log(err);
+          const currentTime = new Date();
+          const oneWeekMills = 7 * 24 * 60 * 60 * 1000;
 
-        let dataArray = [];
-        let usedMemory = 0;
+          let dataArray = [];
+          let usedMemory = 0;
 
-        result.forEach((data) => {
-          usedMemory += Number(data.size);
-          const fileLastAccessed = data.last_accessed;
-          data.last_accessed = getFormatedDate(data.last_accessed);
-          data.creation_date = getFormatedDate(data.creation_date);
-          if (data.deletion_date === null) {
-            if (
-              dataCategory === "dashboard" &&
-              data.frontend_path === "" &&
-              !data.public
-            ) {
-              dataArray.push(data);
-            } else if (
-              dataCategory === "recents" &&
-              currentTime.getTime() - fileLastAccessed.getTime() < oneWeekMills
-            ) {
-              dataArray.push(data);
-            } else if (dataCategory === "starred" && data.starred) {
-              dataArray.push(data);
-            } else if (dataCategory === "public" && data.public) {
+          result.forEach((data) => {
+            usedMemory += Number(data.size);
+            const fileLastAccessed = data.last_accessed;
+            data.last_accessed = getFormatedDate(data.last_accessed);
+            data.creation_date = getFormatedDate(data.creation_date);
+            if (data.deletion_date === null) {
+              if (
+                dataCategory === "dashboard" &&
+                data.frontend_path === "" &&
+                !data.public
+              ) {
+                dataArray.push(data);
+              } else if (
+                dataCategory === "recents" &&
+                currentTime.getTime() - fileLastAccessed.getTime() <
+                  oneWeekMills
+              ) {
+                dataArray.push(data);
+              } else if (dataCategory === "starred" && data.starred) {
+                dataArray.push(data);
+              } else if (dataCategory === "public" && data.public) {
+                dataArray.push(data);
+              }
+              if (data.type === "folder" && dataCategory === "folders") {
+                const frontendPath =
+                  data.frontend_path.length > 0 ? data.frontend_path + "/" : "";
+                const uniquePath =
+                  data.unique_path.length > 0 ? data.unique_path + "/" : "";
+                const folder = {
+                  unique_identifier: data.unique_identifier,
+                  size: data.size,
+                  frontend_path: "/" + frontendPath + data.name + "/",
+                  unique_path: uniquePath + data.unique_identifier,
+                };
+                dataArray.push(folder);
+              }
+            } else if (dataCategory === "deleted") {
               dataArray.push(data);
             }
-            if (data.type === "folder" && dataCategory === "folders") {
-              const frontendPath =
-                data.frontend_path.length > 0 ? data.frontend_path + "/" : "";
-              const uniquePath =
-                data.unique_path.length > 0 ? data.unique_path + "/" : "";
-              const folder = {
-                unique_identifier: data.unique_identifier,
-                size: data.size,
-                frontend_path: "/" + frontendPath + data.name + "/",
-                unique_path: uniquePath + data.unique_identifier,
-              };
-              dataArray.push(folder);
-            }
-          } else if (dataCategory === "deleted") {
-            dataArray.push(data);
-          }
-        });
-        usedMemory = usedMemory / Math.pow(1024, 3);
-        const freeMemory = (
-          os.freemem() / Math.pow(1024, 3) +
-          usedMemory
-        ).toFixed(2);
-        usedMemory = usedMemory.toFixed(2);
-        if (dataCategory === "folders") {
-          dataArray.unshift({
-            frontend_path: "/",
-            unique_path: "",
           });
-        } else {
-          dataArray = filterData(dataArray);
+          usedMemory = usedMemory / Math.pow(1024, 3);
+          const freeMemory = (
+            os.freemem() / Math.pow(1024, 3) +
+            usedMemory
+          ).toFixed(2);
+          usedMemory = usedMemory.toFixed(2);
+          if (dataCategory === "folders") {
+            dataArray.unshift({
+              frontend_path: "/",
+              unique_path: "",
+            });
+          } else {
+            dataArray = filterData(dataArray);
+          }
+          res.json({
+            dataArray: dataArray,
+            dataFound: true,
+            freeMemory: freeMemory,
+            usedMemory: usedMemory,
+          });
         }
-        res.json({
-          dataArray: dataArray,
-          dataFound: true,
-          freeMemory: freeMemory,
-          usedMemory: usedMemory,
-        });
-      }
-    );
-  }
+      );
+    })
+    .catch(() => {
+      res.json({ message: "Unauthorized user!" });
+    });
 });
 
 function filterData(array) {
@@ -953,27 +987,30 @@ function filterData(array) {
 /*---------------------------------------------------------*/
 
 app.post("/folder-data", (req, res) => {
-  const user = getUser(req.cookies);
-  if (user) {
-    const { folderIdentifier } = req.body;
-    database.query(
-      "SELECT * FROM data WHERE user_username=?",
-      [user.username],
-      (err, result) => {
-        if (err) console.log(err);
-        let folderData;
-        result.forEach((data) => {
-          if (data.unique_identifier === folderIdentifier) {
-            folderData = data;
-          }
-        });
-        res.json({
-          folderContent: getDataFromFolder(result, folderIdentifier),
-          folderData: folderData,
-        });
-      }
-    );
-  }
+  getUser(req.cookies)
+    .then((user) => {
+      const { folderIdentifier } = req.body;
+      database.query(
+        "SELECT * FROM data WHERE user_username=?",
+        [user.username],
+        (err, result) => {
+          if (err) console.log(err);
+          let folderData;
+          result.forEach((data) => {
+            if (data.unique_identifier === folderIdentifier) {
+              folderData = data;
+            }
+          });
+          res.json({
+            folderContent: getDataFromFolder(result, folderIdentifier),
+            folderData: folderData,
+          });
+        }
+      );
+    })
+    .catch(() => {
+      res.json({ message: "Unauthorized user!" });
+    });
 });
 
 function getDataFromFolder(data, folderIdentifier) {
@@ -996,121 +1033,125 @@ function getDataFromFolder(data, folderIdentifier) {
 /*----------------Set new name----------------*/
 
 app.post("/rename-data", (req, res) => {
-  const { newName, data } = req.body;
-  const user = getUser(req.cookies);
-  if (user) {
-    if (newName.length === 0) {
-      res.json({
-        message: `${capitalizeFirstLetter(data.type)} name cannot be empty!`,
-      });
-    } else {
-      database.query(
-        "UPDATE data SET name = ? WHERE user_username = ? AND unique_identifier = ?",
-        [newName, user.username, data.unique_identifier],
-        (err) => {
-          if (err) {
+  getUser(req.cookies)
+    .then((user) => {
+      const { newName, data } = req.body;
+      if (newName.length === 0) {
+        res.json({
+          message: `${capitalizeFirstLetter(data.type)} name cannot be empty!`,
+        });
+      } else {
+        database.query(
+          "UPDATE data SET name = ? WHERE user_username = ? AND unique_identifier = ?",
+          [newName, user.username, data.unique_identifier],
+          (err) => {
+            if (err) {
+              res.json({
+                message: `Error changing ${capitalizeFirstLetter(
+                  data.type
+                )} name!`,
+              });
+              console.log(err);
+            }
             res.json({
-              message: `Error changing ${capitalizeFirstLetter(
+              message: `${capitalizeFirstLetter(
                 data.type
-              )} name!`,
+              )} name changed succesfully!`,
             });
-            console.log(err);
           }
-          res.json({
-            message: `${capitalizeFirstLetter(
-              data.type
-            )} name changed succesfully!`,
-          });
-        }
-      );
-    }
-  } else {
-    res.json({ message: "Unauthorized user" });
-  }
+        );
+      }
+    })
+    .catch(() => {
+      res.json({ message: "Unauthorized user!" });
+    });
 });
 
 /*----------------Set new path----------------*/
 
 app.post("/set-new-path", (req, res) => {
-  const user = getUser(req.cookies);
-  if (user) {
-    const { targetFolder, dataToMove } = req.body;
-    //select all data
-    database.query(
-      "SELECT * FROM data WHERE user_username=?",
-      [user.username],
-      (err, result) => {
-        if (err) console.log(err);
-        result.forEach((data, index) => {
-          //make an array with the folders from the path
-          let dataUniquePathArray = data.unique_path.split("/");
-          let dataFrontendPathArray = data.frontend_path.split("/");
-          //go trough the file/folder unique path
-          dataUniquePathArray.forEach((dataIdentifier, index) => {
-            //if a folder from the unique path matches the name of the file/folder remove all the elements from 0 to the index of the folder that matches the name
-            if (dataIdentifier === dataToMove.unique_identifier) {
-              dataUniquePathArray.splice(0, index);
-              dataFrontendPathArray.splice(0, index);
-              //put the path back together
-              dataFrontendPathArray = dataFrontendPathArray.join("/");
-              dataUniquePathArray = dataUniquePathArray.join("/");
+  getUser(req.cookies)
+    .then((user) => {
+      const { targetFolder, dataToMove } = req.body;
+      //select all data
+      database.query(
+        "SELECT * FROM data WHERE user_username=?",
+        [user.username],
+        (err, result) => {
+          if (err) console.log(err);
+          result.forEach((data, index) => {
+            //make an array with the folders from the path
+            let dataUniquePathArray = data.unique_path.split("/");
+            let dataFrontendPathArray = data.frontend_path.split("/");
+            //go trough the file/folder unique path
+            dataUniquePathArray.forEach((dataIdentifier, index) => {
+              //if a folder from the unique path matches the name of the file/folder remove all the elements from 0 to the index of the folder that matches the name
+              if (dataIdentifier === dataToMove.unique_identifier) {
+                dataUniquePathArray.splice(0, index);
+                dataFrontendPathArray.splice(0, index);
+                //put the path back together
+                dataFrontendPathArray = dataFrontendPathArray.join("/");
+                dataUniquePathArray = dataUniquePathArray.join("/");
+                database.query(
+                  "UPDATE data set frontend_path = ?, unique_path = ? WHERE user_username = ? AND unique_identifier = ?",
+                  [
+                    //when inserting put the new path at the begining and then cooect it with the modify one to set all the files an folders to the new path
+                    [targetFolder.frontend_path, dataFrontendPathArray].join(
+                      "/"
+                    ),
+                    [targetFolder.unique_path, dataUniquePathArray].join("/"),
+                    user.username,
+                    data.unique_identifier,
+                  ],
+                  (err) => {
+                    if (err) console.log(err);
+                  }
+                );
+              }
+            });
+            if (result.length === index + 1) {
+              //move the folder/file to the chosen path
               database.query(
-                "UPDATE data set frontend_path = ?, unique_path = ? WHERE user_username = ? AND unique_identifier = ?",
+                "UPDATE data SET frontend_path = ?, unique_path = ? WHERE user_username = ? AND unique_identifier = ?",
                 [
-                  //when inserting put the new path at the begining and then cooect it with the modify one to set all the files an folders to the new path
-                  [targetFolder.frontend_path, dataFrontendPathArray].join("/"),
-                  [targetFolder.unique_path, dataUniquePathArray].join("/"),
+                  targetFolder.frontend_path,
+                  targetFolder.unique_path,
                   user.username,
-                  data.unique_identifier,
+                  dataToMove.unique_identifier,
                 ],
                 (err) => {
-                  if (err) console.log(err);
+                  if (err) {
+                    console.log(err);
+                  }
+                  //uptdate the folder size
+                  database.query(
+                    "UPDATE data SET size = ? WHERE user_username = ? AND unique_identifier = ?",
+                    [
+                      Number(targetFolder.size) + Number(dataToMove.size)
+                        ? Number(targetFolder.size) + Number(dataToMove.size)
+                        : 0,
+                      user.username,
+                      targetFolder.unique_identifier,
+                    ],
+                    (err) => {
+                      if (err) console.log(err);
+                      res.json({
+                        message: `${capitalizeFirstLetter(
+                          dataToMove.type
+                        )} moved succesfully!`,
+                      });
+                    }
+                  );
                 }
               );
             }
           });
-          if (result.length === index + 1) {
-            //move the folder/file to the chosen path
-            database.query(
-              "UPDATE data SET frontend_path = ?, unique_path = ? WHERE user_username = ? AND unique_identifier = ?",
-              [
-                targetFolder.frontend_path,
-                targetFolder.unique_path,
-                user.username,
-                dataToMove.unique_identifier,
-              ],
-              (err) => {
-                if (err) {
-                  console.log(err);
-                }
-                //uptdate the folder size
-                database.query(
-                  "UPDATE data SET size = ? WHERE user_username = ? AND unique_identifier = ?",
-                  [
-                    Number(targetFolder.size) + Number(dataToMove.size)
-                      ? Number(targetFolder.size) + Number(dataToMove.size)
-                      : 0,
-                    user.username,
-                    targetFolder.unique_identifier,
-                  ],
-                  (err) => {
-                    if (err) console.log(err);
-                    res.json({
-                      message: `${capitalizeFirstLetter(
-                        dataToMove.type
-                      )} moved succesfully!`,
-                    });
-                  }
-                );
-              }
-            );
-          }
-        });
-      }
-    );
-  } else {
-    res.status(401).json({ message: "Unauthorized user" });
-  }
+        }
+      );
+    })
+    .catch(() => {
+      res.status(401).json({ message: "Unauthorized user" });
+    });
 });
 
 /*----------------Add to starred----------------*/
@@ -1133,53 +1174,56 @@ async function updateDataStarredStatus(user, data, starred) {
 }
 
 app.post("/starred", (req, res) => {
-  const user = getUser(req.cookies);
-  if (user) {
-    const { condition, data } = req.body;
-    if (data.type === "folder") {
-      database.query(
-        "SELECT * FROM data WHERE user_username = ?",
-        [user.username],
-        (err, result) => {
-          if (err) {
-            console.log(err);
-            res.json({ message: "An error occurred!" });
+  getUser(req.cookies)
+    .then((user) => {
+      const { condition, data } = req.body;
+      if (data.type === "folder") {
+        database.query(
+          "SELECT * FROM data WHERE user_username = ?",
+          [user.username],
+          (err, result) => {
+            if (err) {
+              console.log(err);
+              res.json({ message: "An error occurred!" });
+            } else {
+              result.forEach((resultData) => {
+                if (
+                  resultData.unique_path
+                    .split("/")
+                    .includes(data.unique_identifier)
+                ) {
+                  updateDataStarredStatus(user, resultData, condition).catch(
+                    (err) => {
+                      console.log(err);
+                    }
+                  );
+                }
+              });
+            }
+          }
+        );
+      }
+      updateDataStarredStatus(user, data, condition)
+        .then(() => {
+          if (condition) {
+            res.json({
+              message: `${capitalizeFirstLetter(data.type)} added to starred!`,
+            });
           } else {
-            result.forEach((resultData) => {
-              if (
-                resultData.unique_path
-                  .split("/")
-                  .includes(data.unique_identifier)
-              ) {
-                updateDataStarredStatus(user, resultData, condition).catch(
-                  (err) => {
-                    console.log(err);
-                  }
-                );
-              }
+            res.json({
+              message: `${capitalizeFirstLetter(
+                data.type
+              )} removed from starred!`,
             });
           }
-        }
-      );
-    }
-    updateDataStarredStatus(user, data, condition)
-      .then(() => {
-        if (condition) {
-          res.json({
-            message: `${capitalizeFirstLetter(data.type)} added to starred!`,
-          });
-        } else {
-          res.json({
-            message: `${capitalizeFirstLetter(
-              data.type
-            )} removed from starred!`,
-          });
-        }
-      })
-      .catch((err) => {
-        console.log(err);
-      });
-  }
+        })
+        .catch((err) => {
+          console.log(err);
+        });
+    })
+    .catch(() => {
+      res.json("Unauthorized user!");
+    });
 });
 
 /*----------------Move to bin----------------*/
@@ -1246,116 +1290,122 @@ async function processDeletions(result, user) {
 }
 
 app.post("/delete", (req, res) => {
-  const user = getUser(req.cookies);
-  if (user) {
-    const { data } = req.body;
-    //select the
-    if (data.deletion_date === null) {
-      database.query(
-        "SELECT * FROM data WHERE user_username = ? AND deletion_date IS NULL",
-        [user.username],
-        (err, result) => {
-          if (err) {
-            console.log(err);
-            return res.json({ message: "Error selecting data!" });
-          } else {
-            result.forEach((resultData) => {
-              if (
-                resultData.unique_path
-                  .split("/")
-                  .includes(data.unique_identifier)
-              ) {
-                setDeletionDate(user, resultData)
-                  .then(() => {})
-                  .catch((err) => {
-                    console.log(err);
-                  });
-              }
-            });
-            setDeletionDate(user, data)
-              .then(() => {
-                res.json({
-                  message: `${capitalizeFirstLetter(data.type)} moved to bin!`,
-                });
-              })
-              .catch((err) => {
-                console.log(err);
-                return res.json({
-                  message: `Error moving ${data.type} to bin!`,
-                });
-              });
-          }
-        }
-      );
-    } else {
-      if (data.type === "folder") {
+  getUser(req.cookies)
+    .then((user) => {
+      const { data } = req.body;
+      //select the
+      if (data.deletion_date === null) {
         database.query(
-          "SELECT * FROM data WHERE user_username = ? AND deletion_date IS NOT NULL",
+          "SELECT * FROM data WHERE user_username = ? AND deletion_date IS NULL",
           [user.username],
           (err, result) => {
-            {
-              if (err) {
-                console.log(err);
-                res.json({ message: "Error selecting data!" });
-              } else {
-                result.forEach((resultData) => {
-                  if (
-                    resultData.unique_path
-                      .split("/")
-                      .includes(data.unique_identifier)
-                  ) {
-                    deleteData(user, resultData).catch((err) => {
-                      // return res.json({
-                      //   message: `Error deleting the ${data.type}!`,
-                      // });
+            if (err) {
+              console.log(err);
+              return res.json({ message: "Error selecting data!" });
+            } else {
+              result.forEach((resultData) => {
+                if (
+                  resultData.unique_path
+                    .split("/")
+                    .includes(data.unique_identifier)
+                ) {
+                  setDeletionDate(user, resultData)
+                    .then(() => {})
+                    .catch((err) => {
+                      console.log(err);
                     });
-                  }
+                }
+              });
+              setDeletionDate(user, data)
+                .then(() => {
+                  res.json({
+                    message: `${capitalizeFirstLetter(
+                      data.type
+                    )} moved to bin!`,
+                  });
+                })
+                .catch((err) => {
+                  console.log(err);
+                  return res.json({
+                    message: `Error moving ${data.type} to bin!`,
+                  });
                 });
-              }
             }
           }
         );
+      } else {
+        if (data.type === "folder") {
+          database.query(
+            "SELECT * FROM data WHERE user_username = ? AND deletion_date IS NOT NULL",
+            [user.username],
+            (err, result) => {
+              {
+                if (err) {
+                  console.log(err);
+                  res.json({ message: "Error selecting data!" });
+                } else {
+                  result.forEach((resultData) => {
+                    if (
+                      resultData.unique_path
+                        .split("/")
+                        .includes(data.unique_identifier)
+                    ) {
+                      deleteData(user, resultData).catch((err) => {
+                        // return res.json({
+                        //   message: `Error deleting the ${data.type}!`,
+                        // });
+                      });
+                    }
+                  });
+                }
+              }
+            }
+          );
+        }
+        deleteData(user, data)
+          .then(() => {
+            res.json({
+              message: `${capitalizeFirstLetter(
+                data.type
+              )} deleted succesfully!`,
+            });
+          })
+          .catch((err) => {
+            return res.json({
+              message: `Error deleting the ${data.type}!`,
+            });
+          });
       }
-      deleteData(user, data)
-        .then(() => {
-          res.json({
-            message: `${capitalizeFirstLetter(data.type)} deleted succesfully!`,
-          });
-        })
-        .catch((err) => {
-          return res.json({
-            message: `Error deleting the ${data.type}!`,
-          });
-        });
-    }
-  } else {
-    res.json({ message: "Unauthorized user!" });
-  }
+    })
+    .catch(() => {
+      res.json({ message: "Unauthorized user!" });
+    });
 });
 
 /*----------------Auto delete date----------------*/
 
 app.post("/auto-delete-data", (req, res) => {
-  const user = getUser(req.cookies);
-  if (user) {
-    database.query(
-      "SELECT * FROM data WHERE user_username = ? AND deletion_date IS NOT NULL",
-      [user.username],
-      (err, result) => {
-        if (err) console.log(err);
-        processDeletions(result, user)
-          .then(() => {
-            res.json({ message: "Data deleted successfully" });
-          })
-          .catch((err) => {
-            console.error(err);
-            res.json({ message: "An error occurred while deleting data" });
-          });
-      }
-    );
-  } else {
-    res.json({ message: "Unauthorized user!" });
-  }
+  getUser(req.cookies)
+    .then((user) => {
+      database.query(
+        "SELECT * FROM data WHERE user_username = ? AND deletion_date IS NOT NULL",
+        [user.username],
+        (err, result) => {
+          if (err) console.log(err);
+          processDeletions(result, user)
+            .then(() => {
+              res.json({ message: "Data deleted successfully" });
+            })
+            .catch((err) => {
+              console.error(err);
+              res.json({ message: "An error occurred while deleting data" });
+            });
+        }
+      );
+    })
+    .catch(() => {
+      res.json({ message: "Unauthorized user!" });
+    });
 });
 
 /*----------------Recover deleted data----------------*/
@@ -1377,45 +1427,46 @@ async function recoverData(user, data) {
 }
 
 app.post("/recover", (req, res) => {
-  const user = getUser(req.cookies);
-  if (user) {
-    const { data } = req.body;
-    database.query(
-      "SELECT * FROM data WHERE user_username = ? AND deletion_date IS NOT NULL",
-      [user.username],
-      (err, result) => {
-        if (err) console.log(err);
-        result.forEach((resultData) => {
-          if (
-            resultData.unique_path.split("/").includes(data.unique_identifier)
-          ) {
-            recoverData(user, resultData).catch(() => {
+  getUser(req.cookies)
+    .then((user) => {
+      const { data } = req.body;
+      database.query(
+        "SELECT * FROM data WHERE user_username = ? AND deletion_date IS NOT NULL",
+        [user.username],
+        (err, result) => {
+          if (err) console.log(err);
+          result.forEach((resultData) => {
+            if (
+              resultData.unique_path.split("/").includes(data.unique_identifier)
+            ) {
+              recoverData(user, resultData).catch(() => {
+                console.log(err);
+                return res.json({
+                  message: `Error recovering the ${data.type}!`,
+                });
+              });
+            }
+          });
+          recoverData(user, data)
+            .then(() => {
+              res.json({
+                message: `${capitalizeFirstLetter(
+                  data.type
+                )} recoverd succesfully!`,
+              });
+            })
+            .catch(() => {
               console.log(err);
               return res.json({
                 message: `Error recovering the ${data.type}!`,
               });
             });
-          }
-        });
-        recoverData(user, data)
-          .then(() => {
-            res.json({
-              message: `${capitalizeFirstLetter(
-                data.type
-              )} recoverd succesfully!`,
-            });
-          })
-          .catch(() => {
-            console.log(err);
-            return res.json({
-              message: `Error recovering the ${data.type}!`,
-            });
-          });
-      }
-    );
-  } else {
-    res.json({ message: "Unauthorized user!" });
-  }
+        }
+      );
+    })
+    .catch(() => {
+      res.json({ message: "Unauthorized user!" });
+    });
 });
 
 /*----------------Add data to public----------------*/
@@ -1438,152 +1489,158 @@ app.post("/recover", (req, res) => {
 // }
 
 // app.post("/public", (req, res) => {
-//   const user = getUser(req.cookies);
-//   if (user) {
-//     const { condition, data } = req.body;
-//     if (data.type === "folder") {
-//       database.query(
-//         "SELECT * FROM data WHERE user_username = ?",
-//         [user.username],
-//         (err, result) => {
-//           if (err) {
-//             return res.json({ message: "Error selecting data!" });
-//           } else {
-//             result.forEach((resultData) => {
-//               if (
-//                 resultData.unique_path
-//                   .split("/")
-//                   .includes(data.unique_identifier)
-//               ) {
-//                 updateDataPublicStatus(user, resultData, condition).catch(
-//                   (err) => {
-//                     console.log(err);
-//                   }
-//                 );
-//               }
-//             });
+//   getUser(req.cookies)
+//     .then((user) => {
+//       const { condition, data } = req.body;
+//       if (data.type === "folder") {
+//         database.query(
+//           "SELECT * FROM data WHERE user_username = ?",
+//           [user.username],
+//           (err, result) => {
+//             if (err) {
+//               return res.json({ message: "Error selecting data!" });
+//             } else {
+//               result.forEach((resultData) => {
+//                 if (
+//                   resultData.unique_path
+//                     .split("/")
+//                     .includes(data.unique_identifier)
+//                 ) {
+//                   updateDataPublicStatus(user, resultData, condition).catch(
+//                     (err) => {
+//                       console.log(err);
+//                     }
+//                   );
+//                 }
+//               });
+//             }
 //           }
-//         }
-//       );
-//     }
-//     updateDataPublicStatus(user, data, condition)
-//       .then(() => {
-//         if (condition) {
-//           res.json({ message: `The ${data.type} has been made public` });
-//         } else {
-//           res.json({ message: `The ${data.type} has been made private` });
-//         }
-//       })
-//       .catch((err) => {
-//         if (condition) {
-//           res.json({ message: `Error making ${data.type} public!` });
-//         } else {
-//           res.json({ message: `Error making ${data.type} private!` });
-//         }
-//         console.log(err);
-//       });
-//   } else {
-//     res.json({ message: "Unauthorized user!" });
-//   }
+//         );
+//       }
+//       updateDataPublicStatus(user, data, condition)
+//         .then(() => {
+//           if (condition) {
+//             res.json({ message: `The ${data.type} has been made public` });
+//           } else {
+//             res.json({ message: `The ${data.type} has been made private` });
+//           }
+//         })
+//         .catch((err) => {
+//           if (condition) {
+//             res.json({ message: `Error making ${data.type} public!` });
+//           } else {
+//             res.json({ message: `Error making ${data.type} private!` });
+//           }
+//           console.log(err);
+//         });
+//     })
+//     .catch(() => {
+//       res.json({ message: "Unauthorized user!" });
+//     });
 // });
 
 /*----------------Update folder last access time----------------*/
 
 app.post("/update-last-access", (req, res) => {
-  const user = getUser(req.cookies);
-  if (user) {
-    const { folderIdentifier } = req.body;
-    database.query(
-      "UPDATE data SET last_accessed = ? WHERE user_username = ? AND unique_identifier = ? ",
-      [new Date(), user.username, folderIdentifier],
-      (err) => {
-        if (err) throw err;
-        res.json({ message: "Last accessed dat updated succesfully!" });
-      }
-    );
-  } else {
-    res.json({ message: "Unauthorized user!" });
-  }
+  getUser(req.cookies)
+    .then((user) => {
+      const { folderIdentifier } = req.body;
+      database.query(
+        "UPDATE data SET last_accessed = ? WHERE user_username = ? AND unique_identifier = ? ",
+        [new Date(), user.username, folderIdentifier],
+        (err) => {
+          if (err) throw err;
+          res.json({ message: "Last accessed dat updated succesfully!" });
+        }
+      );
+    })
+    .catch(() => {
+      res.json({ message: "Unauthorized user!" });
+    });
 });
 
 /*----------------Search data system----------------*/
 
 app.post("/search", (req, res) => {
-  const user = getUser(req.cookies);
-  if (user) {
-    const { query } = req.body;
-    let dataArray = [];
-    database.query(
-      "SELECT * FROM data WHERE user_username = ?",
-      [user.username],
-      (err, result) => {
-        if (err) throw err;
-        let category = query[0];
-        let folderName = query[1];
-        let searchString = query[2];
-        let searchArray = query[2].split("-");
-        let currentTime = new Date();
-        let oneWeekMills = 7 * 24 * 60 * 60 * 1000;
-        dataArray = result.filter((obj) => {
-          if (
-            category.toLowerCase() === "deleted" &&
-            obj.deletion_date !== null
-          )
-            return true;
-          else if (obj.deletion_date === null) {
-            if (category.toLowerCase() === "starred" && obj.starred === 1)
-              return true;
-            else if (
-              category.toLowerCase() === "recents" &&
-              currentTime.getTime() - obj.last_accessed.getTime() < oneWeekMills
+  getUser(req.cookies)
+    .then((user) => {
+      const { query } = req.body;
+      let dataArray = [];
+      database.query(
+        "SELECT * FROM data WHERE user_username = ?",
+        [user.username],
+        (err, result) => {
+          if (err) throw err;
+          let category = query[0];
+          let folderName = query[1];
+          let searchString = query[2];
+          let searchArray = query[2].split("-");
+          let currentTime = new Date();
+          let oneWeekMills = 7 * 24 * 60 * 60 * 1000;
+          dataArray = result.filter((obj) => {
+            if (
+              category.toLowerCase() === "deleted" &&
+              obj.deletion_date !== null
             )
               return true;
-            else if (
-              category.toLowerCase() === "dashboard" &&
-              obj.deletion_date === null
-            ) {
-              return true;
+            else if (obj.deletion_date === null) {
+              if (category.toLowerCase() === "starred" && obj.starred === 1)
+                return true;
+              else if (
+                category.toLowerCase() === "recents" &&
+                currentTime.getTime() - obj.last_accessed.getTime() <
+                  oneWeekMills
+              )
+                return true;
+              else if (
+                category.toLowerCase() === "dashboard" &&
+                obj.deletion_date === null
+              ) {
+                return true;
+              }
             }
-          }
-          return false;
-        });
-        dataArray = dataArray.filter((obj) => {
-          if (category.toLowerCase() !== "dashboard" && folderName === "/") {
-            let notNested = true;
-            notNested = !dataArray.find((obj2) =>
-              obj.unique_path.split("/").includes(obj2.unique_identifier)
-            );
-            if (notNested) return true;
-          }
-          if (
-            (folderName === "/" && obj.frontend_path === "") ||
-            folderName.toLowerCase() === "all" ||
-            obj.frontend_path
-              .toLowerCase()
-              .split("/")
-              .includes(folderName.toLowerCase())
-          )
-            return true;
-          return false;
-        });
-        searchArray.forEach((word) => {
-          dataArray = dataArray.filter((obj) => {
-            if (obj.name.toLowerCase().includes(word)) return true;
             return false;
           });
-        });
-        let tmpObj;
-        dataArray.forEach((obj, index) => {
-          if (obj.name.toLowerCase().includes(searchString.toLowerCase())) {
-            tmpObj = obj;
-            dataArray.splice(index, 1);
-            dataArray.unshift(tmpObj);
-          }
-        });
-        res.json({ data: dataArray });
-      }
-    );
-  } else res.json({ message: "Unauthorized user!" });
+          dataArray = dataArray.filter((obj) => {
+            if (category.toLowerCase() !== "dashboard" && folderName === "/") {
+              let notNested = true;
+              notNested = !dataArray.find((obj2) =>
+                obj.unique_path.split("/").includes(obj2.unique_identifier)
+              );
+              if (notNested) return true;
+            }
+            if (
+              (folderName === "/" && obj.frontend_path === "") ||
+              folderName.toLowerCase() === "all" ||
+              obj.frontend_path
+                .toLowerCase()
+                .split("/")
+                .includes(folderName.toLowerCase())
+            )
+              return true;
+            return false;
+          });
+          searchArray.forEach((word) => {
+            dataArray = dataArray.filter((obj) => {
+              if (obj.name.toLowerCase().includes(word)) return true;
+              return false;
+            });
+          });
+          let tmpObj;
+          dataArray.forEach((obj, index) => {
+            if (obj.name.toLowerCase().includes(searchString.toLowerCase())) {
+              tmpObj = obj;
+              dataArray.splice(index, 1);
+              dataArray.unshift(tmpObj);
+            }
+          });
+          res.json({ data: dataArray });
+        }
+      );
+    })
+    .catch(() => {
+      res.json({ message: "Unauthorized user!" });
+    });
 });
 
 app.listen(3002, () => {

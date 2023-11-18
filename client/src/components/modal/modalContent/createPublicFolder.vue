@@ -48,8 +48,6 @@ export default {
         .post(
           `${config.BASE_URL}/fetch-data`,
           {
-            accessToken: window.$cookies.get("accessToken"),
-            refreshToken: window.$cookies.get("refreshToken"),
             dataCategory: "folders",
           },
           { withCredentials: true }
@@ -77,17 +75,19 @@ export default {
         }
       } else {
         axios
-          .post(`${config.BASE_URL}/create-folder`, {
-            accessToken: window.$cookies.get("accessToken"),
-            refreshToken: window.$cookies.get("refreshToken"),
-            isPublic: true,
-            name: folderName,
-            uniquePath: this.selectedPublicFolderPath.unique_path,
-            frontendPath: this.selectedPublicFolderPath.frontend_path.slice(
-              1,
-              -1
-            ),
-          })
+          .post(
+            `${config.BASE_URL}/create-folder`,
+            {
+              isPublic: true,
+              name: folderName,
+              uniquePath: this.selectedPublicFolderPath.unique_path,
+              frontendPath: this.selectedPublicFolderPath.frontend_path.slice(
+                1,
+                -1
+              ),
+            },
+            { withCredentials: true }
+          )
           .then((response) => {
             this.$emit("update-data");
             this.$emit("hide-modal", response.data);
