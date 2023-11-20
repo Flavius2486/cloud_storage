@@ -47,7 +47,7 @@ export default {
         aset.style.backgroundColor = "#f7f8fb";
       });
       //hide info modal
-      this.$refs.navbar.hideInfoModal();
+      if (this.$store.state.isAuthenticated) this.$refs.navbar.hideInfoModal();
     },
   },
   mounted() {

@@ -597,13 +597,15 @@ export default {
           {
             data: data,
           },
-          { withCredentials: true }
+          { responseType: "blob", withCredentials: true }
         )
         .then((response) => {
           if (response.data.message) {
             this.showMessageBox(response.data.message);
           } else {
-            const blob = new Blob([response.data], { type: "application/zip" });
+            const blob = new Blob([response.data], {
+              type: response.headers["content-type"],
+            });
 
             const link = document.createElement("a");
             link.href = window.URL.createObjectURL(blob);
@@ -718,11 +720,18 @@ export default {
     },
 
     defaultSorting() {
-      this.dataCopy.sort((a, b) => {
-        let aDate = new Date(a.creation_date);
-        let bDate = new Date(b.creation_date);
-        return bDate.getTime() - aDate.getTime();
-      });
+      if (this.page === "recents")
+        this.dataCopy.sort((a, b) => {
+          let aDate = new Date(a.last_accessed);
+          let bDate = new Date(b.last_accessed);
+          return bDate.getTime() - aDate.getTime();
+        });
+      else
+        this.dataCopy.sort((a, b) => {
+          let aDate = new Date(a.creation_date);
+          let bDate = new Date(b.creation_date);
+          return bDate.getTime() - aDate.getTime();
+        });
     },
 
     sortDataInOrder() {

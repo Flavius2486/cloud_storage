@@ -10,6 +10,7 @@ import fs from "fs";
 import path from "path";
 import os from "os";
 import archiver from "archiver";
+import { fileTypeFromFile as fileType } from "file-type";
 
 import database from "./database/connection.js";
 
@@ -517,7 +518,6 @@ async function combineChunks(chunkFilePaths, fileId, user) {
       chunkStream.pipe(combinedStream, { end: false }); // Pipe the chunk to the combined file stream
 
       chunkStream.on("end", () => {
-        combinedStream.write("\n"); // Add a separator between chunks
         fs.unlinkSync(
           path.join(`./uploads/${user.username}/chunks`, chunkFilePaths[a])
         ); // Delete the processed chunk file
@@ -802,17 +802,38 @@ function zipDirectory(sourceDir, outPath) {
   });
 }
 
+const getFileType = async (data) => {
+  return new Promise((resolve, reject) => {
+    (async () => {
+      try {
+        const result = await fileType(data);
+        if (result) {
+          resolve(result.mime);
+        } else {
+          reject(new Error("Unable to determine the file type."));
+        }
+      } catch (error) {
+        reject(error);
+      }
+    })();
+  });
+};
+
 app.post("/download", (req, res) => {
   getUser(req.cookies)
     .then((user) => {
       const { data } = req.body;
       updateLastAccessedDate(data.unique_identifier, user);
       if (data.type === "file") {
-        res.sendFile(
-          path.resolve(
-            `uploads/${user.username}/files/${data.unique_identifier}`
-          )
+        const file = path.resolve(
+          `uploads/${user.username}/files/${data.unique_identifier}`
         );
+        getFileType(file).then((type) => {
+          res.setHeader("Content-Type", type);
+          res.sendFile(file, (err) => {
+            if (err) throw err;
+          });
+        });
       } else {
         database.query(
           "SELECT * FROM data WHERE user_username=?",
@@ -841,7 +862,10 @@ app.post("/download", (req, res) => {
                     res.sendFile(
                       path.resolve(
                         `uploads/${user.username}/tmp_folder/${data.name}.zip`
-                      )
+                      ),
+                      (err) => {
+                        if (err) throw err;
+                      }
                     );
                   })
                   .catch((err) => console.error(err));
