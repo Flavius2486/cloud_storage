@@ -1,12 +1,11 @@
 import axios from "axios";
 import store from "@/store";
-import config from "@/config.json";
 
 const fetchData = async (dataCategory) => {
   store.commit("setDataStatus", { state: false });
   try {
     const response = await axios.post(
-      `${config.BASE_URL}/fetch-data`,
+      `/api/fetch-data`,
       {
         dataCategory: dataCategory,
       },

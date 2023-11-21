@@ -25,7 +25,6 @@
 
 <script>
 import axios from "axios";
-import config from "@/config.json";
 import "@/components/modal/modalContent/style.css";
 
 export default {
@@ -47,7 +46,7 @@ export default {
     getAvailablePaths() {
       axios
         .post(
-          `${config.BASE_URL}/fetch-data`,
+          `/api/fetch-data`,
           {
             dataCategory: "folders",
           },
@@ -79,7 +78,7 @@ export default {
       } else {
         axios
           .post(
-            `${config.BASE_URL}/create-folder`,
+            `/api/create-folder`,
             {
               isPublic: false,
               name: folderName,

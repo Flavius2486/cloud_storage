@@ -114,7 +114,6 @@ import MessageBox from "@/components/notifications/messageBox.vue";
 
 import fetchData from "@/utils/fetchData";
 import resetData from "@/utils/resetData";
-import config from "@/config.json";
 
 export default {
   components: {
@@ -145,7 +144,7 @@ export default {
   },
   mounted() {
     this.resumable = new Resumable({
-      target: `${config.BASE_URL}/upload`,
+      target: `/api/upload`,
       testChunks: false,
       chunkSize: 4 * 1024 * 1024,
       simultaneousUploads: 1,

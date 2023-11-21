@@ -12,8 +12,6 @@
 
 <script>
 import axios from "axios";
-import config from "@/config.json";
-
 import "@/components/modal/modalContent/style.css";
 
 export default {
@@ -35,7 +33,7 @@ export default {
         newNameInput.style.borderColor = "#CDCDD6";
         axios
           .post(
-            `${config.BASE_URL}/rename-data`,
+            `/api/rename-data`,
             {
               newName: newNameInput.value,
               data: this.data,

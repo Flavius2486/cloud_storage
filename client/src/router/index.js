@@ -9,7 +9,7 @@ const routes = [
   {
     path: "/login",
     name: "login",
-    component: () => import("../views/LoginView.vue"),
+    component: () => import("@/views/LoginView.vue"),
   },
   {
     path: "/",
@@ -20,7 +20,7 @@ const routes = [
   {
     path: "/dashboard",
     name: "dashboard",
-    component: () => import("../views/DashboardView.vue"),
+    component: () => import("@/views/DashboardView.vue"),
     meta: {
       requiresAuth: true,
     },
@@ -28,7 +28,7 @@ const routes = [
   {
     path: "/recents",
     name: "recents",
-    component: () => import("../views/RecentsView.vue"),
+    component: () => import("@/views/RecentsView.vue"),
     meta: {
       requiresAuth: true,
     },
@@ -36,7 +36,7 @@ const routes = [
   {
     path: "/starred",
     name: "starred",
-    component: () => import("../views/StarredView.vue"),
+    component: () => import("@/views/StarredView.vue"),
     meta: {
       requiresAuth: true,
     },
@@ -44,7 +44,7 @@ const routes = [
   // {
   //   path: "/public",
   //   name: "public",
-  //   component: () => import("../views/PublicView.vue"),
+  //   component: () => import("@/views/PublicView.vue"),
   //   meta: {
   //     requiresAuth: true,
   //   },
@@ -52,7 +52,7 @@ const routes = [
   {
     path: "/deleted",
     name: "deleted",
-    component: () => import("../views/DeletedView.vue"),
+    component: () => import("@/views/DeletedView.vue"),
     meta: {
       requiresAuth: true,
     },
@@ -60,7 +60,7 @@ const routes = [
   {
     path: "/search/:query",
     name: "search",
-    component: () => import("../views/SearchResultsView.vue"),
+    component: () => import("@/views/SearchResultsView.vue"),
     meta: {
       requiresAuth: true,
     },
@@ -68,7 +68,7 @@ const routes = [
   {
     path: "/folder/:folderIdentifier",
     name: "folderData",
-    component: () => import("../views/FolderDataView.vue"),
+    component: () => import("@/views/FolderDataView.vue"),
     meta: {
       requiresAuth: true,
     },
@@ -76,6 +76,7 @@ const routes = [
 ];
 
 const router = createRouter({
+  mode: createWebHistory(),
   history: createWebHistory(process.env.BASE_URL),
   routes,
 });

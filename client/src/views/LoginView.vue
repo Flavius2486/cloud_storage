@@ -47,7 +47,6 @@
 </template>
 
 <script>
-import config from "@/config.json";
 import axios from "axios";
 
 export default {
@@ -85,7 +84,7 @@ export default {
       if (!error) {
         axios
           .post(
-            `${config.BASE_URL}/login`,
+            `/api/login`,
             {
               email_username: this.email_username,
               password: this.password,

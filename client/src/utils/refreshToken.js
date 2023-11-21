@@ -1,10 +1,9 @@
 import axios from "axios";
-import config from "@/config.json";
 
 const refreshToken = () => {
   axios
     .post(
-      `${config.BASE_URL}/refresh-token`,
+      `/api/refresh-token`,
       {},
       {
         withCredentials: true,

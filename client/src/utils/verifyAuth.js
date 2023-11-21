@@ -1,11 +1,10 @@
 /* eslint-disable */
 import axios from "axios";
-import config from "@/config.json";
 
 const isAuthenticated = async () => {
   try {
     const response = await axios.post(
-      `${config.BASE_URL}/verify-auth`,
+      `/api/verify-auth`,
       {},
       {
         withCredentials: true,

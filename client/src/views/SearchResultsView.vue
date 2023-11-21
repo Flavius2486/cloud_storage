@@ -5,7 +5,6 @@
 <script>
 import DataWrapper from "@/components/dataWrapper";
 import axios from "axios";
-import config from "@/config.json";
 
 export default {
   components: { DataWrapper },
@@ -23,7 +22,7 @@ export default {
         query = this.$route.params.query.split("?");
         axios
           .post(
-            `${config.BASE_URL}/search`,
+            `/api/search`,
             { query: query },
             { withCredentials: true }
           )

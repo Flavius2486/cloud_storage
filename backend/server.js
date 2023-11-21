@@ -11,6 +11,7 @@ import path from "path";
 import os from "os";
 import archiver from "archiver";
 import { fileTypeFromFile as fileType } from "file-type";
+import serveStatic from "serve-static";
 
 import database from "./database/connection.js";
 
@@ -175,7 +176,7 @@ function capitalizeFirstLetter(str) {
                   Authentication system
 /*---------------------------------------------------------*/
 
-app.post("/refresh-token", (req, res) => {
+app.post("/api/refresh-token", (req, res) => {
   const { refreshToken, accessToken } = req.cookies;
   //check if the tokens exist
   if (refreshToken === null || accessToken === null) {
@@ -219,7 +220,7 @@ app.post("/refresh-token", (req, res) => {
   }
 });
 
-app.post("/logout", (req, res) => {
+app.post("/api/logout", (req, res) => {
   const token = req.cookies.refreshToken;
   //see if the token exists
   validateRefreshToken(token)
@@ -244,7 +245,7 @@ app.post("/logout", (req, res) => {
     });
 });
 
-app.post("/login", (req, res) => {
+app.post("/api/login", (req, res) => {
   const { email_username, password } = req.body;
   if (!password || !email_username) {
     return res.json({
@@ -340,7 +341,7 @@ function generateAccessToken(user) {
   });
 }
 
-app.post("/verify-auth", (req, res) => {
+app.post("/api/verify-auth", (req, res) => {
   if (req.cookies.accessToke === null || req.cookies.refreshToken === null) {
     res.json({ auth: false, email: null });
   } else {
@@ -605,7 +606,7 @@ const storage = multer.diskStorage({
 
 const upload = multer({ storage: storage });
 
-app.post("/upload", upload.array("file"), (req, res) => {
+app.post("/api/upload", upload.array("file"), (req, res) => {
   //verify if any of the files got all the chunks
   (async () => {
     for (let i = 0; i < filesArray.length; i++) {
@@ -819,7 +820,7 @@ const getFileType = async (data) => {
   });
 };
 
-app.post("/download", (req, res) => {
+app.post("/api/download", (req, res) => {
   getUser(req.cookies)
     .then((user) => {
       const { data } = req.body;
@@ -886,7 +887,7 @@ app.post("/download", (req, res) => {
                   Create Folders
 /*---------------------------------------------------------*/
 
-app.post("/create-folder", (req, res) => {
+app.post("/api/create-folder", (req, res) => {
   getUser(req.cookies)
     .then((user) => {
       const { name, isPublic, frontendPath, uniquePath } = req.body;
@@ -920,7 +921,7 @@ function resetData(data, user) {
   return data;
 }
 
-app.post("/reset-data", (req, res) => {
+app.post("/api/reset-data", (req, res) => {
   getUser(req.cookies)
     .then((user) => {
       foldersArray = resetData(foldersArray, user);
@@ -935,7 +936,7 @@ app.post("/reset-data", (req, res) => {
     });
 });
 
-app.post("/fetch-data", (req, res) => {
+app.post("/api/fetch-data", (req, res) => {
   getUser(req.cookies)
     .then((user) => {
       const { dataCategory } = req.body;
@@ -1042,7 +1043,7 @@ function filterData(array) {
                Get current folder data
 /*---------------------------------------------------------*/
 
-app.post("/folder-data", (req, res) => {
+app.post("/api/folder-data", (req, res) => {
   getUser(req.cookies)
     .then((user) => {
       const { folderIdentifier } = req.body;
@@ -1089,7 +1090,7 @@ function getDataFromFolder(data, folderIdentifier) {
 
 /*----------------Set new name----------------*/
 
-app.post("/rename-data", (req, res) => {
+app.post("/api/rename-data", (req, res) => {
   getUser(req.cookies)
     .then((user) => {
       const { newName, data } = req.body;
@@ -1127,7 +1128,7 @@ app.post("/rename-data", (req, res) => {
 
 /*----------------Set new path----------------*/
 
-app.post("/set-new-path", (req, res) => {
+app.post("/api/set-new-path", (req, res) => {
   getUser(req.cookies)
     .then((user) => {
       const { targetFolder, dataToMove } = req.body;
@@ -1232,7 +1233,7 @@ async function updateDataStarredStatus(user, data, starred) {
   });
 }
 
-app.post("/starred", (req, res) => {
+app.post("/api/starred", (req, res) => {
   getUser(req.cookies)
     .then((user) => {
       const { condition, data } = req.body;
@@ -1349,7 +1350,7 @@ async function processDeletions(result, user) {
   }
 }
 
-app.post("/delete", (req, res) => {
+app.post("/api/delete", (req, res) => {
   getUser(req.cookies)
     .then((user) => {
       const { data } = req.body;
@@ -1444,7 +1445,7 @@ app.post("/delete", (req, res) => {
 
 /*----------------Auto delete date----------------*/
 
-app.post("/auto-delete-data", (req, res) => {
+app.post("/api/auto-delete-data", (req, res) => {
   getUser(req.cookies)
     .then((user) => {
       database.query(
@@ -1486,7 +1487,7 @@ async function recoverData(user, data) {
   });
 }
 
-app.post("/recover", (req, res) => {
+app.post("/api/recover", (req, res) => {
   getUser(req.cookies)
     .then((user) => {
       const { data } = req.body;
@@ -1548,7 +1549,7 @@ app.post("/recover", (req, res) => {
 //   });
 // }
 
-// app.post("/public", (req, res) => {
+// app.post("/api/public", (req, res) => {
 //   getUser(req.cookies)
 //     .then((user) => {
 //       const { condition, data } = req.body;
@@ -1601,7 +1602,7 @@ app.post("/recover", (req, res) => {
 
 /*----------------Update folder last access time----------------*/
 
-app.post("/update-last-access", (req, res) => {
+app.post("/api/update-last-access", (req, res) => {
   getUser(req.cookies)
     .then((user) => {
       const { folderIdentifier } = req.body;
@@ -1621,7 +1622,7 @@ app.post("/update-last-access", (req, res) => {
 
 /*----------------Search data system----------------*/
 
-app.post("/search", (req, res) => {
+app.post("/api/search", (req, res) => {
   getUser(req.cookies)
     .then((user) => {
       const { query } = req.body;
@@ -1702,6 +1703,13 @@ app.post("/search", (req, res) => {
       res.json({ message: "Unauthorized user!" });
     });
 });
+
+// if (process.env.NODE_ENV === "production") {
+app.use(serveStatic("./public/"));
+app.get(/.*/, (req, res) => {
+  res.sendFile(path.resolve("./public/index.html"));
+});
+// }
 
 app.listen(3002, () => {
   console.log("Server listening on port 3002");

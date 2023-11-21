@@ -15,7 +15,6 @@
 <script>
 import DataWrapper from "@/components/dataWrapper.vue";
 import axios from "axios";
-import config from "@/config.json";
 
 export default {
   components: {
@@ -32,7 +31,7 @@ export default {
     fetchFolderData() {
       axios
         .post(
-          `${config.BASE_URL}/folder-data`,
+          `/api/folder-data`,
           {
             folderIdentifier: this.$route.params.folderIdentifier,
           },
@@ -50,7 +49,7 @@ export default {
     updateFolderLastAccesse() {
       axios
         .post(
-          `${config.BASE_URL}/update-last-access`,
+          `/api/update-last-access`,
           {
             folderIdentifier: this.$route.params.folderIdentifier,
           },

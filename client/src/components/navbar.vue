@@ -56,7 +56,6 @@ import Dropdown from "@/components/dropdown/dropdown.vue";
 import DropdownOption from "@/components/dropdown/dropdownOption";
 import MessageBox from "@/components/notifications/messageBox.vue";
 import axios from "axios";
-import config from "@/config.json";
 
 export default {
   name: "nav-bar",
@@ -91,7 +90,7 @@ export default {
     },
     logout() {
       axios
-        .post(`${config.BASE_URL}/logout`, {}, { withCredentials: true })
+        .post(`/api/logout`, {}, { withCredentials: true })
         .then(() => {
           this.$router.go();
         })

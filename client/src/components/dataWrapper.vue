@@ -327,7 +327,6 @@
 </template>
 
 <script>
-import config from "@/config.json";
 import axios from "axios";
 
 import Dropdown from "@/components/dropdown/dropdown.vue";
@@ -572,7 +571,7 @@ export default {
     updateData(isTrue, obj, route) {
       axios
         .post(
-          `${config.BASE_URL}/${route}`,
+          `/api/${route}`,
           {
             condition: isTrue,
             data: obj,
@@ -593,7 +592,7 @@ export default {
     downloadData(data) {
       axios
         .post(
-          `${config.BASE_URL}/download`,
+          `/api/download`,
           {
             data: data,
           },
