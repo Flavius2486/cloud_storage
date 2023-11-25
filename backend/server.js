@@ -622,7 +622,7 @@ app.post("/api/upload", upload.array("file"), (req, res) => {
         filesArray[i].status === 0 &&
         !missingChunks
       ) {
-        getUser(req.cookies)
+        await getUser(req.cookies)
           .then((user) => {
             //set the file status to uploading
             filesArray[i].status = 1;
@@ -723,11 +723,11 @@ app.post("/api/upload", upload.array("file"), (req, res) => {
                 res.send("File uploaded successfully");
               })
               .catch((error) => {
-                return console.error("Error combining chunks:", error);
+                console.error("Error combining chunks:", error);
               });
           })
           .catch(() => {
-            return res.status(401).json({ error: "Unauthorized user" });
+            res.json({ error: "Unauthorized user" });
           });
       }
       if (
@@ -735,7 +735,7 @@ app.post("/api/upload", upload.array("file"), (req, res) => {
         Number(filesArray[i].totalChunks) !==
           Number(filesArray[i].chunks.length)
       ) {
-        return res.send("Chunk received");
+        res.send("Chunk received");
       }
     }
   })().catch((err) => {
@@ -1457,6 +1457,33 @@ app.post("/api/auto-delete-data", (req, res) => {
             });
         }
       );
+    })
+    .catch(() => {
+      res.json({ message: "Unauthorized user!" });
+    });
+});
+
+/*----------------Delete remaining chunks----------------*/
+
+app.post("/api/delete-chunks", (req, res) => {
+  getUser(req.cookies)
+    .then((user) => {
+      fs.readdir(`./uploads/${user.username}/chunks/`, (err, files) => {
+        if (err) {
+          console.error("Error deleting chunks:", err);
+          res.status(500).json({ message: "Error deleting chunks" });
+        } else {
+          for (const file of files) {
+            fs.unlink(
+              path.join(`./uploads/${user.username}/chunks/`, file),
+              (error) => {
+                if (err) throw error;
+              }
+            );
+          }
+          res.json({ message: "Chunks deleted successfully" });
+        }
+      });
     })
     .catch(() => {
       res.json({ message: "Unauthorized user!" });

@@ -80,6 +80,8 @@
     :status="filesStatus"
     :numberOfFilesToUpload="filesToUpload"
     :numberOfUploadedFiles="uploadedFiles"
+    @abort-uploading="abortUploading()"
+    ref="filesActionStatusRef"
   ></FilesActionStatus>
   <MessageBox
     ref="MessageBox"
@@ -95,6 +97,9 @@
       @update-data="updateData()"
     ></CreatePrivateFolder>
   </Modal>
+  <!-- <div v-show="filesStatus === null" class="show-uploading-status-btn">
+    <fa :icon="['fas', 'chevron-left']" />
+  </div> -->
   <!-- <Modal
     :title="'Create public folder'"
     :customClass="'modal-create-public-folder'"
@@ -118,6 +123,7 @@ import MessageBox from "@/components/notifications/messageBox.vue";
 
 import fetchData from "@/utils/fetchData";
 import resetData from "@/utils/resetData";
+import axios from "axios";
 
 export default {
   components: {
@@ -195,6 +201,18 @@ export default {
     });
   },
   methods: {
+    abortUploading() {
+      this.resumable.cancel();
+      this.filesStatus = "aborting";
+      axios
+        .post("/api/delete-chunks", {}, { withCredentials: true })
+        .then(() => {
+          this.filesStatus = "aborted";
+        })
+        .catch(() => {
+          this.filesStatus = "error";
+        });
+    },
     updateData() {
       fetchData("dashboard")
         .then((dataArray) => {
@@ -294,6 +312,25 @@ export default {
 </script>
 
 <style scoped>
+.show-uploading-status-btn {
+  position: absolute;
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 35px;
+  right: 10px;
+  bottom: 20px;
+  color: black;
+  background-color: #fff;
+  border-radius: 10px;
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+  font-size: 20px;
+  box-shadow: 0px 3px 1px -2px rgba(0, 0, 0, 0.2),
+    0px 2px 2px 0px rgba(0, 0, 0, 0.14), 0px 1px 5px 0px rgba(0, 0, 0, 0.12),
+    0 1px 2px 0 rgba(60, 64, 67, 0.3), 0 1px 3px 1px rgba(60, 64, 67, 0.15);
+}
+
 /*---------------Dashboard header------------------*/
 
 .dashboard-view__header {

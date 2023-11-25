@@ -6,7 +6,7 @@
         style="color: #cf1717"
         class="status-icon"
       />
-      <p>An error has occurred whle uploading the files</p>
+      <p>An error has occurred...</p>
     </div>
     <div class="status" v-if="status == 'success'">
       <fa
@@ -16,6 +16,14 @@
       />
       <p>Files uploaded successfully ({{ numberOfFilesToUpload }})</p>
     </div>
+    <div class="status" v-if="status == 'aborted'">
+      <fa
+        :icon="['far', 'circle-check']"
+        style="color: #16ac2f"
+        class="status-icon"
+      />
+      <p>Aborted</p>
+    </div>
     <div class="status" v-if="status == 'uploading'">
       <div class="loader icon"></div>
       <p class="status-text">
@@ -23,8 +31,19 @@
         uploaded
       </p>
     </div>
+    <div class="status" v-if="status == 'aborting'">
+      <div class="loader icon"></div>
+      <p class="status-text">Aborting</p>
+    </div>
     <div class="xmark-container" @click="hideFileStatus">
       <fa :icon="['fas', 'xmark']" class="xmark" />
+    </div>
+    <div
+      class="abort-btn"
+      v-if="status == 'uploading'"
+      @click="$emit('abort-uploading')"
+    >
+      Abort
     </div>
   </div>
 </template>
@@ -32,6 +51,7 @@
 <script>
 export default {
   name: "file-status",
+  emits: ["abort-uploading"],
   props: {
     status: {
       type: String,
@@ -75,6 +95,7 @@ export default {
   background-color: #fff;
   border-radius: 10px;
   border-bottom-left-radius: 0;
+  border-top-right-radius: 0;
   box-shadow: 0px 3px 1px -2px rgba(0, 0, 0, 0.2),
     0px 2px 2px 0px rgba(0, 0, 0, 0.14), 0px 1px 5px 0px rgba(0, 0, 0, 0.12),
     0 1px 2px 0 rgba(60, 64, 67, 0.3), 0 1px 3px 1px rgba(60, 64, 67, 0.15);
@@ -125,6 +146,25 @@ export default {
 .status-icon {
   font-size: 25px;
   margin-right: 10px;
+}
+
+.abort-btn {
+  color: #b51f1f;
+  padding: 2px 10px;
+  position: absolute;
+  right: 0px;
+  margin-top: -60px;
+  background-color: #fff;
+  border-radius: 10px;
+  border-bottom-right-radius: 0;
+  font-size: 16px;
+  box-shadow: 0px 3px 1px -2px rgba(0, 0, 0, 0.2),
+    0px 2px 2px 0px rgba(0, 0, 0, 0.14), 0px 1px 5px 0px rgba(0, 0, 0, 0.12),
+    0 1px 2px 0 rgba(60, 64, 67, 0.3), 0 1px 3px 1px rgba(60, 64, 67, 0.15);
+}
+
+.abort-btn:hover {
+  color: #e11313;
 }
 
 /*----------------------------------*\
