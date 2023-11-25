@@ -723,7 +723,7 @@ app.post("/api/upload", upload.array("file"), (req, res) => {
                 res.send("File uploaded successfully");
               })
               .catch((error) => {
-                console.error("Error combining chunks:", error);
+                return console.error("Error combining chunks:", error);
               });
           })
           .catch(() => {
@@ -931,6 +931,7 @@ app.post("/api/fetch-data", (req, res) => {
 
           result.forEach((data) => {
             usedMemory += Number(data.size);
+            data.size = (Number(data.size) / Math.pow(1024, 2)).toFixed(2);
             const fileLastAccessed = data.last_accessed;
             data.last_accessed = getFormatedDate(data.last_accessed);
             data.creation_date = getFormatedDate(data.creation_date);
@@ -1024,7 +1025,7 @@ function filterData(array) {
 app.post("/api/folder-data", (req, res) => {
   getUser(req.cookies)
     .then((user) => {
-      const { folderIdentifier } = req.body;
+      const { folderIdentifier, page } = req.body;
       updateLastAccessedDate(folderIdentifier, user);
       database.query(
         "SELECT * FROM data WHERE user_username=?",
@@ -1038,7 +1039,7 @@ app.post("/api/folder-data", (req, res) => {
             }
           });
           res.json({
-            folderContent: getDataFromFolder(result, folderIdentifier),
+            folderContent: getDataFromFolder(result, folderIdentifier, page),
             folderData: folderData,
           });
         }
@@ -1049,13 +1050,28 @@ app.post("/api/folder-data", (req, res) => {
     });
 });
 
-function getDataFromFolder(data, folderIdentifier) {
+function getDataFromFolder(data, folderIdentifier, page) {
   const result = [];
+  const currentTime = new Date();
+  const oneWeekMills = 7 * 24 * 60 * 60 * 1000;
 
   for (const item of data) {
     let uniquePath = item.unique_path.split("/");
     if (uniquePath[uniquePath.length - 1] === folderIdentifier) {
-      result.push(item);
+      const fileLastAccessed = item.last_accessed;
+      item.size = (Number(item.size) / Math.pow(1024, 2)).toFixed(2);
+      item.last_accessed = getFormatedDate(item.last_accessed);
+      item.creation_date = getFormatedDate(item.creation_date);
+      if (item.deletion_date !== null && page === "deleted") {
+        result.push(item);
+      } else if (
+        (item.starred && page === "starred") ||
+        (page === "recents" &&
+          currentTime.getTime() - fileLastAccessed.getTime() < oneWeekMills) ||
+        page === "dashboard"
+      ) {
+        result.push(item);
+      }
     }
   }
 

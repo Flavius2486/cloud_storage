@@ -134,6 +134,7 @@ input {
   -webkit-appearance: none;
   -moz-appearance: none;
   appearance: none;
+  background-color: transparent;
 }
 .navbar {
   width: 100%;
@@ -204,7 +205,7 @@ input {
   border-bottom-right-radius: 10px;
   border: none !important;
   padding: 2px;
-  color: #9e9ea2;
+  /* color: #9e9ea2; */
   font-size: 15px;
 }
 

@@ -66,7 +66,7 @@ const routes = [
     },
   },
   {
-    path: "/folder/:folderIdentifier",
+    path: "/:page/:folderIdentifier",
     name: "folderData",
     component: () => import("@/views/FolderDataView.vue"),
     meta: {

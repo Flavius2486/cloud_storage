@@ -5,8 +5,8 @@
     </p>
   </div>
   <DataWrapper
-    @fetch-folder-data="fetchFolderData"
     @update-data="fetchFolderData"
+    @fetch-folder-data="fetchFolderData"
     :data="data"
     :page="'folder'"
   ></DataWrapper>
@@ -23,21 +23,25 @@ export default {
   props: ["folderIdentifier"],
   data() {
     return {
+      prevPage: "",
       data: [],
       folder: {},
     };
   },
   methods: {
     fetchFolderData() {
+      this.$store.commit("setDataStatus", { state: false });
       axios
         .post(
           `/api/folder-data`,
           {
             folderIdentifier: this.$route.params.folderIdentifier,
+            page: this.prevPage,
           },
           { withCredentials: true }
         )
         .then((response) => {
+          this.$store.commit("setDataStatus", { state: true });
           this.data = response.data.folderContent;
           this.folder = response.data.folderData;
         })
@@ -62,11 +66,12 @@ export default {
     },
   },
   mounted() {
+    this.prevPage = this.$route.params.page;
     this.fetchFolderData();
     this.updateFolderLastAccesse();
   },
   watch: {
-    data() {
+    $route() {
       this.fetchFolderData();
       this.updateFolderLastAccesse();
     },

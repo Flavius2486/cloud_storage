@@ -114,6 +114,12 @@
           @mouseenter="showfileCheckbox(index)"
           @mouseleave="hidefileCheckbox(index)"
           @click.stop="selectfile(index)"
+          @dblclick="
+            {
+              this.dataObjOpenedOptions = this.dataCopy[index];
+              filesOptions[0].action();
+            }
+          "
           class="file--table file"
         >
           <div class="file-name-column">
@@ -185,7 +191,7 @@
         </th>
         <th class="files-last-accesed-column">
           <div>
-            <p>Last accesed</p>
+            <p>Last accessed</p>
           </div>
         </th>
         <th>
@@ -208,6 +214,12 @@
         @mouseenter="showfileCheckbox(index)"
         @mouseleave="hidefileCheckbox(index)"
         @click.stop="selectfile(index)"
+        @dblclick="
+          {
+            this.dataObjOpenedOptions = this.dataCopy[index];
+            filesOptions[0].action();
+          }
+        "
       >
         <th>
           <div class="file-name-column">
@@ -408,14 +420,13 @@ export default {
           modalClassName: "",
           actionType: "function",
           show: true,
-          dataBrackedNotation: "",
           action: () => {
             if (this.dataObjOpenedOptions.type === "folder") {
-              this.$emit("fetch-folder-data");
               this.$router.replace({
                 name: "folderData",
                 params: {
                   folderIdentifier: this.dataObjOpenedOptions.unique_identifier,
+                  page: this.page,
                 },
               });
             }
@@ -427,7 +438,6 @@ export default {
           modalClassName: "modal-rename-data",
           actionType: "modal",
           show: true,
-          dataBrackedNotation: "",
           action: () => {},
         },
         {
@@ -436,7 +446,6 @@ export default {
           modalClassName: "modal-move-data",
           actionType: "modal",
           show: this.page !== "deleted" ? true : false,
-          dataBrackedNotation: "",
           action: () => {},
         },
         {
@@ -445,7 +454,7 @@ export default {
           modalClassName: "",
           actionType: "function",
           show: true,
-          dataBrackedNotation: "starred",
+          type: "starred",
           action: () => {
             this.updateData(true, this.dataObjOpenedOptions, "starred");
           },
@@ -456,7 +465,7 @@ export default {
           modalClassName: "",
           actionType: "function",
           show: false,
-          dataBrackedNotation: "starred",
+          type: "starred",
           action: () => {
             this.updateData(false, this.dataObjOpenedOptions, "starred");
           },
@@ -467,7 +476,7 @@ export default {
         //   modalClassName: "",
         //   actionType: "function",
         //   show: true,
-        //   dataBrackedNotation: "public",
+        //   type: "public",
         //   action: () => {
         //     this.updateData(true, this.dataObjOpenedOptions, "public");
         //   },
@@ -479,7 +488,7 @@ export default {
         //   modalClassName: "",
         //   actionType: "function",
         //   show: false,
-        //   dataBrackedNotation: "public",
+        //    type: "public",
         //   action: () => {
         //     this.updateData(false, this.dataObjOpenedOptions, "public");
         //   },
@@ -490,7 +499,6 @@ export default {
           modalClassName: "modal-data-detalies",
           actionType: "modal",
           show: true,
-          dataBrackedNotation: "",
           action: () => {},
         },
         {
@@ -499,7 +507,6 @@ export default {
           modalClassName: "",
           actionType: "function",
           show: true,
-          dataBrackedNotation: "",
           action: () => this.downloadData(this.dataObjOpenedOptions),
         },
         {
@@ -508,7 +515,6 @@ export default {
           modalClassName: "",
           actionType: "function",
           show: this.page === "deleted" ? true : false,
-          dataBrackedNotation: "",
           action: () => {
             this.updateData(true, this.dataObjOpenedOptions, "recover");
           },
@@ -519,7 +525,6 @@ export default {
           modalClassName: "",
           actionType: "function",
           show: true,
-          dataBrackedNotation: "",
           action: () => {
             this.updateData(true, this.dataObjOpenedOptions, "delete");
           },
@@ -542,29 +547,28 @@ export default {
     },
 
     setFileDropdownOptions(index) {
+      const optionsTypes = ["starred", "public"];
       this.dataObjOpenedOptions = this.dataCopy[index];
+      this.filesOptions[
+        this.filesOptions.findIndex((obj) => obj.text === "Recover")
+      ].show = this.dataObjOpenedOptions.deletion_date ? true : false;
+      let dataIndex = this.filesOptions.findIndex((obj) =>
+        optionsTypes.includes(obj.type)
+      );
+      if (
+        dataIndex >= 0 &&
+        this.dataObjOpenedOptions[this.filesOptions[dataIndex].type]
+      ) {
+        this.filesOptions[dataIndex].show = false;
+        this.filesOptions[dataIndex + 1].show = true;
+      } else {
+        this.filesOptions[dataIndex + 1].show = false;
+        this.filesOptions[dataIndex].show = true;
+      }
       if (this.dataObjOpenedOptions.type === "file") {
         this.filesOptions[0].show = false;
       } else {
         this.filesOptions[0].show = true;
-      }
-      for (let i = 0; i < this.filesOptions.length; i++) {
-        if (
-          this.dataObjOpenedOptions[
-            this.filesOptions[i].dataBrackedNotation
-          ] !== undefined
-        ) {
-          if (
-            this.dataObjOpenedOptions[this.filesOptions[i].dataBrackedNotation]
-          ) {
-            this.filesOptions[i].show = false;
-            this.filesOptions[i + 1].show = true;
-          } else {
-            this.filesOptions[i].show = true;
-            this.filesOptions[i + 1].show = false;
-          }
-          i++;
-        }
       }
     },
 
@@ -580,7 +584,6 @@ export default {
         )
         .then((response) => {
           this.$emit("update-data");
-          if (this.page === "folder") this.$emit("fetch=folder-data");
           this.showMessageBox(response.data.message);
           this.cancelfilesSelection();
         })

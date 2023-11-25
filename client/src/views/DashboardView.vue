@@ -90,14 +90,17 @@
     :customClass="'modal-create-folder'"
     ref="Modal"
   >
-    <CreatePrivateFolder @hide-modal="hideModalTrigger"></CreatePrivateFolder>
+    <CreatePrivateFolder
+      @hide-modal="hideModalTrigger"
+      @update-data="updateData()"
+    ></CreatePrivateFolder>
   </Modal>
   <!-- <Modal
     :title="'Create public folder'"
     :customClass="'modal-create-public-folder'"
     ref="Modal"
   >
-    <CreatePublicFolder @hide-modal="hideModalTrigger"></CreatePublicFolder>
+    <CreatePublicFolder @hide-modal="hideModalTrigger"  @update-data="updateData()"></CreatePublicFolder>
   </Modal> -->
 </template>
 
@@ -147,7 +150,7 @@ export default {
     this.resumable = new Resumable({
       target: `/api/upload`,
       testChunks: false,
-      chunkSize: 4 * 1024 * 1024,
+      chunkSize: 10 * 1024 * 1024,
       simultaneousUploads: 1,
       maxChunkRetries: 5,
       maxFileSize: Infinity,
@@ -307,6 +310,16 @@ export default {
   .dashboard-view__header {
     padding: 15px;
     background-color: #f7f8fb;
+  }
+}
+
+@media screen and (max-width: 600px) {
+  .upload-folder {
+    display: none;
+  }
+  .upload-file {
+    border-bottom-left-radius: 10px;
+    border-bottom-right-radius: 10px;
   }
 }
 
