@@ -7,9 +7,8 @@ module.exports = defineConfig({
   devServer: {
     proxy: {
       api: {
-        target: "http://132.145.98.197:3002",
+        target: "https://132.145.98.197:3002",
       },
     },
   },
-  // publicPath: process.env.NODE_ENV === "production" ? "/login/" : "/",
 });

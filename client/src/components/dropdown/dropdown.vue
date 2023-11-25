@@ -31,7 +31,7 @@ export default {
 .dropdown {
   min-width: 160px;
   position: absolute;
-  z-index: 99999;
+  z-index: 5;
   color: #141323;
   border: 1px solid #e5e4e4;
   border-radius: 10px;

@@ -132,6 +132,7 @@ export default {
   display: flex;
   flex-direction: column;
   justify-content: space-between;
+  z-index: 12;
 }
 
 .title {
@@ -220,12 +221,15 @@ export default {
       #191b34
     );
     position: absolute;
-    z-index: 5;
+    z-index: 6;
     padding: 10px 0;
     width: 220px;
     border-radius: 10px;
     border-top-left-radius: 0;
+    border-bottom-left-radius: 0;
     padding-right: 10px;
+    height: 100%;
+    overflow: auto;
   }
   .title {
     display: flex;
@@ -238,8 +242,8 @@ export default {
     display: block;
   }
 
-  .divider {
+  /* .divider {
     display: none;
-  }
+  } */
 }
 </style>

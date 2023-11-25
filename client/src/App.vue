@@ -31,13 +31,16 @@ export default {
     openSidebar() {
       const sidebar = document.querySelector(".sidebar");
       sidebar.style.display = "flex";
+      this.hideDropdowns();
     },
-    hideDropdowns() {
+    hideSidebar() {
       if (this.$store.state.isAuthenticated) {
         const sidebar = document.querySelector(".sidebar");
         sidebar.style.display = "none";
       }
       if (this.showSidebar) this.showSidebar = false;
+    },
+    hideDropdowns() {
       const dropdowns = document.querySelectorAll(".dropdown");
       dropdowns.forEach((dropdown) => {
         dropdown.classList.add("hidden");
@@ -54,11 +57,15 @@ export default {
     refreshToken();
   },
   created: function () {
-    window.addEventListener("click", this.hideDropdowns);
+    window.addEventListener("click", () => {
+      this.hideDropdowns(), this.hideSidebar();
+    });
     authoDeleteData();
   },
   unmounted: function () {
-    window.removeEventListener("click", this.hideDropdowns);
+    window.removeEventListener("click", () => {
+      this.hideDropdowns(), this.hideSidebar();
+    });
   },
   watch: {
     "$store.state.isAuthenticated": {

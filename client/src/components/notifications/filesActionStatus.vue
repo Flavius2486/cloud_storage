@@ -116,7 +116,7 @@ export default {
   line-height: 50px;
   margin-left: 45px;
   font-size: 17.5px;
-  z-index: 999999;
+  z-index: 10;
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;

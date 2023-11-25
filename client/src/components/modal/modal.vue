@@ -53,7 +53,7 @@ export default {
   width: 100%;
   height: 100%;
   position: absolute;
-  z-index: 4;
+  z-index: 10;
   background-color: black;
   opacity: 0.2;
   filter: blur(10px);
@@ -64,7 +64,7 @@ export default {
   border-radius: 10px;
   background-color: #ffffff;
   position: absolute;
-  z-index: 50;
+  z-index: 11;
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);

@@ -130,6 +130,11 @@ export default {
 </script>
 
 <style scoped>
+input {
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+}
 .navbar {
   width: 100%;
   height: 55px;
@@ -223,7 +228,7 @@ export default {
   color: #363745;
   width: 20px;
   height: 25px;
-  z-index: 99999999;
+  z-index: 1;
 }
 
 @media screen and (max-width: 1150px) {

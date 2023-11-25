@@ -10,7 +10,6 @@ import fs from "fs";
 import path from "path";
 import os from "os";
 import archiver from "archiver";
-import { fileTypeFromFile as fileType } from "file-type";
 import serveStatic from "serve-static";
 
 import database from "./database/connection.js";
@@ -803,23 +802,6 @@ function zipDirectory(sourceDir, outPath) {
   });
 }
 
-const getFileType = async (data) => {
-  return new Promise((resolve, reject) => {
-    (async () => {
-      try {
-        const result = await fileType(data);
-        if (result) {
-          resolve(result.mime);
-        } else {
-          reject(new Error("Unable to determine the file type."));
-        }
-      } catch (error) {
-        reject(error);
-      }
-    })();
-  });
-};
-
 app.post("/api/download", (req, res) => {
   getUser(req.cookies)
     .then((user) => {
@@ -829,11 +811,8 @@ app.post("/api/download", (req, res) => {
         const file = path.resolve(
           `uploads/${user.username}/files/${data.unique_identifier}`
         );
-        getFileType(file).then((type) => {
-          res.setHeader("Content-Type", type);
-          res.sendFile(file, (err) => {
-            if (err) throw err;
-          });
+        res.sendFile(file, (err) => {
+          if (err) throw err;
         });
       } else {
         database.query(
@@ -859,7 +838,6 @@ app.post("/api/download", (req, res) => {
                         }
                       }
                     );
-                    res.setHeader("Content-Type", "application/zip");
                     res.sendFile(
                       path.resolve(
                         `uploads/${user.username}/tmp_folder/${data.name}.zip`

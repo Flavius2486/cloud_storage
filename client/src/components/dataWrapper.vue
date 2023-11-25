@@ -603,7 +603,7 @@ export default {
             this.showMessageBox(response.data.message);
           } else {
             const blob = new Blob([response.data], {
-              type: response.headers["content-type"],
+              type: "application/zip",
             });
 
             const link = document.createElement("a");

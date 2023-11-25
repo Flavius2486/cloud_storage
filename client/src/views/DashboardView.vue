@@ -73,6 +73,7 @@
   <DataWrapper
     :data="data"
     :page="'dashboard'"
+    ref="dataWrapper"
     @update-data="updateData()"
   ></DataWrapper>
   <FilesActionStatus
@@ -275,6 +276,7 @@ export default {
     },
 
     showDropdown(event) {
+      this.$refs.dataWrapper.cancelfilesSelection();
       const dropdowns = document.querySelectorAll(".dropdown");
       dropdowns.forEach((dropdown) => {
         dropdown.classList.add("hidden");
