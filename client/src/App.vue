@@ -1,7 +1,13 @@
 <template>
   <router-view v-if="!$store.state.isAuthenticated" />
-  <sidebar class="sidebar" v-if="$store.state.isAuthenticated"></sidebar>
+  <sidebar
+    @click.stop
+    class="sidebar"
+    @close-sidebar="hideSidebar"
+    v-if="$store.state.isAuthenticated"
+  ></sidebar>
   <main v-if="$store.state.isAuthenticated" class="centering-container">
+    <div @click="hideSidebar" class="overlay hidden"></div>
     <div class="main-container" @scroll="hideDropdowns">
       <navbar ref="navbar" @show-sidebar="openSidebar"></navbar>
       <router-view />
@@ -31,6 +37,7 @@ export default {
     openSidebar() {
       const sidebar = document.querySelector(".sidebar");
       sidebar.style.display = "flex";
+      document.querySelector(".overlay").classList.remove("hidden");
       this.hideDropdowns();
     },
     hideSidebar() {
@@ -39,6 +46,7 @@ export default {
         sidebar.style.display = "none";
       }
       if (this.showSidebar) this.showSidebar = false;
+      document.querySelector(".overlay").classList.add("hidden");
     },
     hideDropdowns() {
       const dropdowns = document.querySelectorAll(".dropdown");
@@ -127,6 +135,10 @@ export default {
   overflow-x: hidden;
 }
 
+.hidden {
+  display: none;
+}
+
 /* Hide the scrollbar when not hovered */
 ::-webkit-scrollbar {
   width: 6px;
@@ -152,6 +164,13 @@ input:focus {
     width: 100%;
     height: 100%;
     border-radius: 0;
+  }
+  .overlay {
+    position: absolute;
+    height: 100%;
+    width: 100%;
+    z-index: 122;
+    filter: blur(5px);
   }
 }
 </style>

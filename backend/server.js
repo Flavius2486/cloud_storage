@@ -8,9 +8,9 @@ import bcrypt from "bcrypt";
 import multer from "multer";
 import fs from "fs";
 import path from "path";
-import os from "os";
 import archiver from "archiver";
 import serveStatic from "serve-static";
+import checkDiskSpace from "check-disk-space";
 
 import database from "./database/connection.js";
 
@@ -970,12 +970,6 @@ app.post("/api/fetch-data", (req, res) => {
               dataArray.push(data);
             }
           });
-          usedMemory = usedMemory / Math.pow(1024, 3);
-          const freeMemory = (
-            os.freemem() / Math.pow(1024, 3) +
-            usedMemory
-          ).toFixed(2);
-          usedMemory = usedMemory.toFixed(2);
           if (dataCategory === "folders") {
             dataArray.unshift({
               frontend_path: "/",
@@ -984,11 +978,19 @@ app.post("/api/fetch-data", (req, res) => {
           } else {
             dataArray = filterData(dataArray);
           }
-          res.json({
-            dataArray: dataArray,
-            dataFound: true,
-            freeMemory: freeMemory,
-            usedMemory: usedMemory,
+          checkDiskSpace("/").then((diskSpace) => {
+            const freeMemory = (
+              (diskSpace.free + usedMemory) /
+              Math.pow(1024, 3)
+            ).toFixed(2);
+            usedMemory = usedMemory / Math.pow(1024, 3);
+            usedMemory = usedMemory.toFixed(2);
+            res.json({
+              dataArray: dataArray,
+              dataFound: true,
+              freeMemory: freeMemory,
+              usedMemory: usedMemory,
+            });
           });
         }
       );

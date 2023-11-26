@@ -9,7 +9,7 @@
       </div>
       <div class="info-modal" @click.stop v-show="showInfoModal">
         <p>
-          In oreder to search you must use a specific syntax:<br />
+          In order to search you must use a specific syntax:<br />
           (1) category: dashboard, recents, starred or deleted <br />
           (2) folder name or "all" everything or "/" root
           <br />

@@ -3,13 +3,16 @@
     <header class="sidebar-header">
       <div class="title">
         <b>Personal Cloud</b>
-        <div class="close-sidebar-btn" @click="closeSidebar()">
+        <div class="close-sidebar-btn" @click="$emit('close-sidebar')">
           <fa :icon="['fas', 'xmark']" />
         </div>
       </div>
       <div v-for="(button, index) in sidebarBtns" :key="index" class="nav-btns">
         <SidebarButton
-          @click="setActivePage(index)"
+          @click="
+            setActivePage(index);
+            $emit('close-sidebar');
+          "
           :icon="button.icon"
           :iconColor="button.color"
           :buttonText="button.text"
@@ -40,6 +43,7 @@ import SidebarButton from "@/components/sidebar/sidebarButton.vue";
 
 export default {
   name: "side-bar",
+  emits: ["close-sidebar"],
   components: {
     SidebarButton,
   },
@@ -85,10 +89,6 @@ export default {
     };
   },
   methods: {
-    closeSidebar() {
-      const sidebar = document.querySelector(".sidebar");
-      sidebar.style.display = "none";
-    },
     setActivePage(index) {
       this.sidebarBtns.forEach((button) => {
         button.active = false;
@@ -132,7 +132,6 @@ export default {
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  z-index: 12;
 }
 
 .title {
@@ -221,7 +220,7 @@ export default {
       #191b34
     );
     position: absolute;
-    z-index: 6;
+    z-index: 12;
     padding: 10px 0;
     width: 220px;
     border-radius: 10px;
