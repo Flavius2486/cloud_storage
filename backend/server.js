@@ -39,13 +39,13 @@ app.use(express.urlencoded({ limit: Infinity, extended: true }));
 
 function validateRefreshToken(token) {
   return new Promise((resolve, reject) => {
-    database.query("SELECT token FROM refresh_tokens", (err, tokens) => {
+    database.query("SELECT refresh_token FROM tokens", (err, tokens) => {
       if (err) {
         reject(err);
         return;
       }
 
-      let isValid = tokens.some((tokenObj) => tokenObj.token === token);
+      let isValid = tokens.some((tokenObj) => tokenObj.refresh_token === token);
 
       if (isValid) {
         jwt.verify(token, process.env.REFRESH_TOKEN, (err, user) => {
@@ -58,8 +58,8 @@ function validateRefreshToken(token) {
   });
 }
 
-function validateAccessToken(accessToken) {
-  return new Promise((resolve, reject) => {
+async function validateAccessToken(accessToken) {
+  return await new Promise((resolve, reject) => {
     try {
       const decodedToken = jwt.verify(accessToken, process.env.ACCESS_TOKEN);
       resolve(decodedToken);
@@ -75,16 +75,7 @@ function getUser(cookies) {
       if (isValid) {
         validateAccessToken(cookies.accessToken).then((user) => {
           if (user) resolve(user);
-          else {
-            database.query(
-              "DELETE FROM refresh_tokens WHERE token=?",
-              [cookies.refreshToken],
-              (err) => {
-                if (err) console.log(err);
-              }
-            );
-            reject();
-          }
+          else reject();
         });
       } else {
         reject();
@@ -175,75 +166,6 @@ function capitalizeFirstLetter(str) {
                   Authentication system
 /*---------------------------------------------------------*/
 
-app.post("/api/refresh-token", (req, res) => {
-  const { refreshToken, accessToken } = req.cookies;
-  //check if the tokens exist
-  if (refreshToken === null || accessToken === null) {
-    if (refreshToken !== null) {
-      database.query(
-        "DELETE FROM refresh_tokens WHERE token=?",
-        [refreshToken],
-        (err) => {
-          if (err) console.log(err);
-          //clear the cookies
-          res.clearCookie("refreshToken");
-          res.json({ auth: false });
-        }
-      );
-    }
-  } else {
-    validateRefreshToken(refreshToken).then((isValid) => {
-      if (isValid) {
-        validateAccessToken(accessToken).then((user) => {
-          if (user) {
-            const accessToken = generateAccessToken({
-              username: user.username,
-              email: user.email,
-            });
-
-            res.cookie("accessToken", accessToken, {
-              expires: new Date(Date.now() + 1000 * 60 * 32),
-              secure: true,
-              httpOnly: true,
-            });
-
-            res.json({ auth: true });
-          } else {
-            return res.json({ auth: false });
-          }
-        });
-      } else {
-        return res.json({ auth: false });
-      }
-    });
-  }
-});
-
-app.post("/api/logout", (req, res) => {
-  const token = req.cookies.refreshToken;
-  //see if the token exists
-  validateRefreshToken(token)
-    .then((isValid) => {
-      if (isValid) {
-        //delete it from the database
-        database.query(
-          "DELETE FROM refresh_tokens WHERE token=?",
-          [token],
-          (err) => {
-            if (err) console.log(err);
-            //clear the cookies
-            res.clearCookie("refreshToken");
-            res.clearCookie("accessToken");
-            res.json({ logout: true });
-          }
-        );
-      }
-    })
-    .catch((error) => {
-      console.error(error);
-    });
-});
-
 app.post("/api/login", (req, res) => {
   const { email_username, password } = req.body;
   if (!password || !email_username) {
@@ -277,6 +199,11 @@ app.post("/api/login", (req, res) => {
                 fs.mkdirSync(`./uploads/${user.username}/chunks`);
                 fs.mkdirSync(`./uploads/${user.username}/tmp_folder`);
               } else {
+                deleteRemainingChunks(user)
+                  .then(() => {})
+                  .catch((err) => {
+                    throw err;
+                  });
                 fs.rm(
                   `uploads/${user.username}/tmp_folder`,
                   { recursive: true },
@@ -291,12 +218,14 @@ app.post("/api/login", (req, res) => {
                 );
               }
 
+              resetMultipleData(user);
+
               const accessToken = generateAccessToken(user);
 
               const refreshToken = jwt.sign(user, process.env.REFRESH_TOKEN);
               database.query(
-                "INSERT INTO refresh_tokens (token) VALUES(?)",
-                [refreshToken],
+                "INSERT INTO tokens (refresh_token, access_token_refresh_date) VALUES(?, ?)",
+                [refreshToken, new Date()],
                 (err) => {
                   if (err) console.log(err);
                 }
@@ -308,12 +237,10 @@ app.post("/api/login", (req, res) => {
                 httpOnly: true,
               });
 
-              res.cookie("refreshToken", refreshToken, { httpOnly: true });
-              res.header(
-                "Access-Control-Allow-Origin",
-                "http://localhost:3001"
-              ); // Adjust the origin to match your Vue.js app
-              res.header("Access-Control-Allow-Credentials", true);
+              res.cookie("refreshToken", refreshToken, {
+                httpOnly: true,
+                secure: true,
+              });
 
               res.json({ accessToken: accessToken, auth: true });
             } else {
@@ -334,11 +261,32 @@ app.post("/api/login", (req, res) => {
   }
 });
 
-function generateAccessToken(user) {
-  return jwt.sign(user, process.env.ACCESS_TOKEN, {
-    expiresIn: "32m",
-  });
-}
+app.post("/api/logout", (req, res) => {
+  const token = req.cookies.refreshToken;
+  //see if the token exists
+  validateRefreshToken(token)
+    .then((isValid) => {
+      if (isValid) {
+        //delete it from the database
+        database.query(
+          "DELETE FROM tokens WHERE refresh_token=?",
+          [token],
+          (err) => {
+            if (err) console.log(err);
+            //clear the cookies
+            res.clearCookie("refreshToken");
+            res.clearCookie("accessToken");
+            res.json({ logout: true });
+          }
+        );
+      } else {
+        res.json({ logout: true });
+      }
+    })
+    .catch((error) => {
+      console.error(error);
+    });
+});
 
 app.post("/api/verify-auth", (req, res) => {
   if (req.cookies.accessToke === null || req.cookies.refreshToken === null) {
@@ -353,6 +301,79 @@ app.post("/api/verify-auth", (req, res) => {
       });
   }
 });
+
+app.post("/api/refresh-token", (req, res) => {
+  const { refreshTokenC, accessTokenC } = req.cookies;
+  //check if the tokens exist
+  if (refreshTokenC === null || accessTokenC === null) {
+    res.clearCookie("refreshToken");
+    res.clearCookie("accesshToken");
+    res.json({ auth: false });
+  } else {
+    getUser(req.cookies)
+      .then((user) => {
+        const accessToken = generateAccessToken({
+          username: user.username,
+          email: user.email,
+        });
+
+        updateLastDateAccessTokenRefreshed(accessTokenC);
+
+        res.cookie("accessToken", accessToken, {
+          expires: new Date(Date.now() + 1000 * 60 * 32),
+          secure: true,
+          httpOnly: true,
+        });
+
+        res.json({ auth: true });
+      })
+      .catch(() => {
+        res.json({ auth: false });
+      });
+  }
+});
+
+function updateLastDateAccessTokenRefreshed(refreshToken) {
+  database.query(
+    "UPDATE tokens SET access_token_refresh_date = ? WHERE refresh_token = ?",
+    [refreshToken, new Date()],
+    (err) => {
+      if (err) throw err;
+    }
+  );
+}
+
+function generateAccessToken(user) {
+  return jwt.sign(user, process.env.ACCESS_TOKEN, {
+    expiresIn: "32m",
+  });
+}
+/*---------------------------------------------------------*\
+         Remove old accesses tokens
+/*---------------------------------------------------------*/
+
+setInterval(() => {
+  database.query("SELECT * FROM tokens", (err, result) => {
+    if (err) throw err;
+    const currentDate = new Date();
+    result.forEach((token) => {
+      if (
+        currentDate.getTime() - token.access_token_refresh_date.getTime() >
+        32 * 60 * 1000
+      ) {
+        database.query(
+          "DELETE FROM tokens WHERE refresh_token = ?",
+          [token.refresh_token],
+          (err) => {
+            if (err) {
+              throw err;
+            }
+          }
+        );
+      }
+    });
+  });
+}, 60 * 60 * 1000); // 12 hours in milliseconds
 
 /*---------------------------------------------------------*\
                   Uploading system
@@ -899,14 +920,18 @@ function resetData(data, user) {
   return data;
 }
 
+function resetMultipleData(user) {
+  foldersArray = resetData(foldersArray, user);
+  filesArray = resetData(filesArray, user);
+  uploadedFoldersArray = resetData(uploadedFoldersArray, user);
+  prevRelativePath = resetData(prevRelativePath, user);
+  numberOfReceivedFiles = resetData(numberOfReceivedFiles, user);
+}
+
 app.post("/api/reset-data", (req, res) => {
   getUser(req.cookies)
     .then((user) => {
-      foldersArray = resetData(foldersArray, user);
-      filesArray = resetData(filesArray, user);
-      uploadedFoldersArray = resetData(uploadedFoldersArray, user);
-      prevRelativePath = resetData(prevRelativePath, user);
-      numberOfReceivedFiles = resetData(numberOfReceivedFiles, user);
+      resetMultipleData(user);
       res.json({ message: "The data has been reseted" });
     })
     .catch(() => {
@@ -978,7 +1003,7 @@ app.post("/api/fetch-data", (req, res) => {
           } else {
             dataArray = filterData(dataArray);
           }
-          checkDiskSpace("/").then((diskSpace) => {
+          checkDiskSpace("D:/").then((diskSpace) => {
             const freeMemory = (
               (diskSpace.free + usedMemory) /
               Math.pow(1024, 3)
@@ -1467,25 +1492,37 @@ app.post("/api/auto-delete-data", (req, res) => {
 
 /*----------------Delete remaining chunks----------------*/
 
+async function deleteRemainingChunks(user) {
+  return await new Promise((resolve, reject) => {
+    fs.readdir(`./uploads/${user.username}/chunks/`, (err, files) => {
+      if (err) {
+        reject(err);
+      } else {
+        for (const file of files) {
+          fs.unlink(
+            path.join(`./uploads/${user.username}/chunks/`, file),
+            (error) => {
+              if (err) throw error;
+            }
+          );
+        }
+        resolve();
+      }
+    });
+  });
+}
+
 app.post("/api/delete-chunks", (req, res) => {
   getUser(req.cookies)
     .then((user) => {
-      fs.readdir(`./uploads/${user.username}/chunks/`, (err, files) => {
-        if (err) {
-          console.error("Error deleting chunks:", err);
-          res.status(500).json({ message: "Error deleting chunks" });
-        } else {
-          for (const file of files) {
-            fs.unlink(
-              path.join(`./uploads/${user.username}/chunks/`, file),
-              (error) => {
-                if (err) throw error;
-              }
-            );
-          }
+      deleteRemainingChunks(user)
+        .then(() => {
           res.json({ message: "Chunks deleted successfully" });
-        }
-      });
+        })
+        .catch((err) => {
+          res.json({ message: "Error deleting remaining chunks" });
+          throw err;
+        });
     })
     .catch(() => {
       res.json({ message: "Unauthorized user!" });

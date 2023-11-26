@@ -6,8 +6,8 @@
     @close-sidebar="hideSidebar"
     v-if="$store.state.isAuthenticated"
   ></sidebar>
+  <div @click="hideSidebar" class="overlay hidden"></div>
   <main v-if="$store.state.isAuthenticated" class="centering-container">
-    <div @click="hideSidebar" class="overlay hidden"></div>
     <div class="main-container" @scroll="hideDropdowns">
       <navbar ref="navbar" @show-sidebar="openSidebar"></navbar>
       <router-view />
