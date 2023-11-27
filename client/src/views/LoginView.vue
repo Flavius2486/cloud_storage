@@ -12,6 +12,7 @@
             type="text"
             class="email_username-input"
             required
+            @keyup.enter="handleLogin"
             @focus="updateInputColor($event, 0)"
           />
           <label class="username-placeholder">Email or username</label>
@@ -23,6 +24,7 @@
             type="password"
             class="password-input"
             required
+            @keyup.enter="handleLogin"
             @focus="updateInputColor($event, 1)"
           />
           <label class="password-placeholder">Password</label>

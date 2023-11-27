@@ -1,37 +1,38 @@
 .modal-btn {
-    width: 100%;
-    height: 30px;
-    background-color: #5a93ed;
-    color: white;
-    margin-top: 10px;
-    border-radius: 4px;
-    display: grid;
-    place-items: center;
-    user-select: none;
+  width: 100%;
+  height: 30px;
+  background-color: #5a93ed;
+  color: white;
+  margin-top: 10px;
+  border-radius: 4px;
+  display: grid;
+  place-items: center;
+  user-select: none;
 }
 
 .modal-btn:hover {
-    background-color: #3878e0;
+  background-color: #3878e0;
 }
 
 .input-field {
-    height: 32px;
-    min-width: 200px;
-    width: 100%;
-    border-radius: 5px;
-    border: 1px solid rgb(205, 205, 214);
-    padding: 7px;
-    font-size: 16px;
+  height: 32px;
+  min-width: 200px;
+  width: 100%;
+  border-radius: 5px;
+  border: 1px solid rgb(205, 205, 214);
+  padding: 7px;
+  font-size: 16px;
 }
 
 .selector {
-    min-width: 200px;
-    width: 100%;
-    border: 1px solid transparent;
-    border-radius: 5px;
+  min-width: 200px;
+  width: 100%;
+  border: 1px solid transparent;
+  border-radius: 5px;
 }
 
 .modal-subtitle {
-    margin-top: 5px;
-    font-size: 15px;
+  margin-top: 5px;
+  font-size: 16px;
+  user-select: none;
 }

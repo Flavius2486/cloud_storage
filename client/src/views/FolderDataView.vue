@@ -9,6 +9,7 @@
     @fetch-folder-data="fetchFolderData"
     :data="data"
     :page="'folder'"
+    :prevPage="prevPage"
   ></DataWrapper>
 </template>
 

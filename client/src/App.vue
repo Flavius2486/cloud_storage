@@ -6,8 +6,12 @@
     @close-sidebar="hideSidebar"
     v-if="$store.state.isAuthenticated"
   ></sidebar>
-  <div @click="hideSidebar" class="overlay hidden"></div>
-  <main v-if="$store.state.isAuthenticated" class="centering-container">
+  <div @click="hideSidebar" class="overlay-app hidden"></div>
+  <main
+    @click.stop="hideDropdowns"
+    v-if="$store.state.isAuthenticated"
+    class="centering-container"
+  >
     <div class="main-container" @scroll="hideDropdowns">
       <navbar ref="navbar" @show-sidebar="openSidebar"></navbar>
       <router-view />
@@ -37,7 +41,7 @@ export default {
     openSidebar() {
       const sidebar = document.querySelector(".sidebar");
       sidebar.style.display = "flex";
-      document.querySelector(".overlay").classList.remove("hidden");
+      document.querySelector(".overlay-app").classList.remove("hidden");
       this.hideDropdowns();
     },
     hideSidebar() {
@@ -46,7 +50,7 @@ export default {
         sidebar.style.display = "none";
       }
       if (this.showSidebar) this.showSidebar = false;
-      document.querySelector(".overlay").classList.add("hidden");
+      document.querySelector(".overlay-app").classList.add("hidden");
     },
     hideDropdowns() {
       const dropdowns = document.querySelectorAll(".dropdown");
@@ -141,6 +145,7 @@ export default {
 
 /* Hide the scrollbar when not hovered */
 ::-webkit-scrollbar {
+  height: 6px;
   width: 6px;
   background-color: #f1f1f1;
   border-radius: 20px;
@@ -165,7 +170,7 @@ input:focus {
     height: 100%;
     border-radius: 0;
   }
-  .overlay {
+  .overlay-app {
     position: absolute;
     height: 100%;
     width: 100%;

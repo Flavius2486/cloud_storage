@@ -31,6 +31,7 @@
     </div>
     <div class="navbar__right-side--group">
       <div class="settings-btn dropdown-settings" @click="showDropdown($event)">
+        <div class="dropdown-settings"></div>
         <fa :icon="['fas', 'gear']" class="dropdown-settings" />
       </div>
       <Dropdown
@@ -130,6 +131,12 @@ export default {
 </script>
 
 <style scoped>
+.settings-btn > div {
+  position: absolute;
+  height: 100%;
+  width: 100%;
+}
+
 input {
   -webkit-appearance: none;
   -moz-appearance: none;

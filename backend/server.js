@@ -11,6 +11,7 @@ import path from "path";
 import archiver from "archiver";
 import serveStatic from "serve-static";
 import checkDiskSpace from "check-disk-space";
+import { v4 as uuidv4 } from "uuid";
 
 import database from "./database/connection.js";
 
@@ -124,7 +125,7 @@ function storeData(data, type) {
   const currentDate = new Date();
   if (data) {
     database.query(
-      "INSERT INTO data (name, unique_identifier, frontend_path, unique_path, creation_date, last_accessed, size, type, public, starred, user_username) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+      "INSERT INTO data (name, unique_identifier, frontend_path, unique_path, creation_date, last_accessed, size, type, starred, user_username) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
       [
         data.name,
         data.uniqueName,
@@ -134,7 +135,6 @@ function storeData(data, type) {
         currentDate,
         data.size,
         type,
-        data.public,
         false,
         data.user,
       ],
@@ -373,7 +373,27 @@ setInterval(() => {
       }
     });
   });
-}, 60 * 60 * 1000); // 12 hours in milliseconds
+  database.query("SELECT * FROM temporary_links", (err, result) => {
+    if (err) throw err;
+    const currentDate = new Date();
+    result.forEach((link) => {
+      if (
+        currentDate.getTime() - link.creation_date.getTime() >
+        24 * 60 * 60 * 1000
+      ) {
+        database.query(
+          "DELETE FROM temporary_links WHERE link = ?",
+          [link.link],
+          (err) => {
+            if (err) {
+              throw err;
+            }
+          }
+        );
+      }
+    });
+  });
+}, 60 * 60 * 1000); // 1 hour in milliseconds
 
 /*---------------------------------------------------------*\
                   Uploading system
@@ -832,8 +852,16 @@ app.post("/api/download", (req, res) => {
         const file = path.resolve(
           `uploads/${user.username}/files/${data.unique_identifier}`
         );
-        res.sendFile(file, (err) => {
-          if (err) throw err;
+        fs.access(file, fs.constants.F_OK, (err) => {
+          if (err) {
+            res.setHeader("dataIsAvailable", 0);
+            res.json({});
+          } else {
+            res.setHeader("dataIsAvailable", 1);
+            res.sendFile(file, (err) => {
+              if (err) throw err;
+            });
+          }
         });
       } else {
         database.query(
@@ -880,6 +908,159 @@ app.post("/api/download", (req, res) => {
     .catch(() => {
       res.send({ message: "Unauthorized user!" });
     });
+});
+
+async function validateTemporaryLink(link) {
+  return await new Promise((resolve, reject) => {
+    database.query(
+      "SELECT * FROM temporary_links WHERE link = ?",
+      [link],
+      (err, linkData) => {
+        const currentDate = new Date();
+        if (err) return reject(err);
+        else if (
+          linkData.length &&
+          currentDate.getTime() - linkData[0].creation_date.getTime() <
+            24 * 60 * 60 * 1000
+        ) {
+          database.query(
+            "SELECT * FROM data WHERE unique_identifier = ?",
+            [linkData[0].unique_identifier],
+            (err, data) => {
+              if (data) {
+                resolve(data[0]);
+              } else reject(err);
+            }
+          );
+        } else reject("Link unavailable");
+      }
+    );
+  });
+}
+
+app.post("/api/tmp-link-download", (req, res) => {
+  const { link } = req.body;
+  validateTemporaryLink(link)
+    .then((data) => {
+      const user = { username: data.user_username };
+      if (data.type === "file") {
+        const file = path.resolve(
+          `uploads/${user.username}/files/${data.unique_identifier}`
+        );
+        fs.access(file, fs.constants.F_OK, (err) => {
+          if (err) {
+            res.setHeader("dataIsAvailable", 0);
+            res.json({});
+          } else {
+            res.setHeader("dataIsAvailable", 1);
+            res.setHeader("dataName", data.name);
+            res.sendFile(file, (err) => {
+              if (err) throw err;
+            });
+          }
+        });
+      } else {
+        database.query(
+          "SELECT * FROM data WHERE user_username=?",
+          [user.username],
+          (err, result) => {
+            if (err) throw err;
+            moveAllFiles(result, user, data)
+              .then(() => {
+                zipDirectory(
+                  `uploads/${user.username}/tmp_folder/${data.name}`,
+                  `uploads/${user.username}/tmp_folder/${data.name}.zip`
+                )
+                  .then(() => {
+                    fs.rm(
+                      `uploads/${user.username}/tmp_folder/${data.name}`,
+                      { recursive: true },
+                      (err) => {
+                        if (err) {
+                          console.log(
+                            `Error deleting folder: ${err.message}. User: ${user.username}`
+                          );
+                        }
+                      }
+                    );
+                    res.sendFile(
+                      path.resolve(
+                        `uploads/${user.username}/tmp_folder/${data.name}.zip`
+                      ),
+                      (err) => {
+                        if (err) console.log(err);
+                      }
+                    );
+                    res.setHeader("dataIsAvailable", 1);
+                    res.setHeader("dataName", data.name);
+                  })
+                  .catch((err) => console.error(err));
+              })
+              .catch((error) => {
+                console.log(`Error moving files: ${error}`);
+              });
+          }
+        );
+      }
+    })
+    .catch(() => {
+      res.setHeader("dataIsAvailable", 0);
+      res.json({});
+    });
+});
+
+app.post("/api/get-download-link", (req, res) => {
+  getUser(req.cookies)
+    .then(() => {
+      const { data } = req.body;
+      database.query(
+        "SELECT * FROM temporary_links WHERE unique_identifier = ?",
+        [data.unique_identifier],
+        (err, result) => {
+          if (err) throw err;
+          if (result.length) res.json({ link: result[0].link });
+          else res.json({ link: null });
+        }
+      );
+    })
+    .catch(() => {
+      res.json({ message: "Unauthorized user!" });
+    });
+});
+
+app.post("/api/generate-download-link", (req, res) => {
+  getUser(req.cookies).then((user) => {
+    const { data } = req.body;
+    const link = uuidv4();
+    database.query(
+      "INSERT INTO temporary_links (link, unique_identifier, creation_date, user) VALUES (?,?,?,?)",
+      [link, data.unique_identifier, new Date(), user.username],
+      (err) => {
+        if (err) {
+          console.log(err);
+          res.json({ message: "Error generating the link" });
+        } else {
+          res.json({ link: link });
+        }
+      }
+    );
+  });
+});
+
+app.post("/api/delete-download-link", (req, res) => {
+  getUser(req.cookies).then((user) => {
+    const { data } = req.body;
+    database.query(
+      "DELETE FROM temporary_links WHERE unique_identifier = ?",
+      [data.unique_identifier],
+      (err) => {
+        if (err) {
+          console.log(err);
+        }
+        res.json();
+      }
+    );
+  });
 });
 
 /*---------------------------------------------------------*\
@@ -961,11 +1142,7 @@ app.post("/api/fetch-data", (req, res) => {
             data.last_accessed = getFormatedDate(data.last_accessed);
             data.creation_date = getFormatedDate(data.creation_date);
             if (data.deletion_date === null) {
-              if (
-                dataCategory === "dashboard" &&
-                data.frontend_path === "" &&
-                !data.public
-              ) {
+              if (dataCategory === "dashboard" && data.frontend_path === "") {
                 dataArray.push(data);
               } else if (
                 dataCategory === "recents" &&
@@ -974,8 +1151,6 @@ app.post("/api/fetch-data", (req, res) => {
               ) {
                 dataArray.push(data);
               } else if (dataCategory === "starred" && data.starred) {
-                dataArray.push(data);
-              } else if (dataCategory === "public" && data.public) {
                 dataArray.push(data);
               }
               if (data.type === "folder" && dataCategory === "folders") {
@@ -1589,76 +1764,6 @@ app.post("/api/recover", (req, res) => {
       res.json({ message: "Unauthorized user!" });
     });
 });
-
-/*----------------Add data to public----------------*/
-/*----------------Remove data to public----------------*/
-
-// async function updateDataPublicStatus(user, data, isPublic) {
-//   return new Promise((resolve, reject) => {
-//     database.query(
-//       "UPDATE data SET public = ? WHERE user_username = ? AND unique_identifier = ?",
-//       [isPublic, user.username, data.unique_identifier],
-//       (err) => {
-//         if (err) {
-//           reject();
-//         } else {
-//           resolve();
-//         }
-//       }
-//     );
-//   });
-// }
-
-// app.post("/api/public", (req, res) => {
-//   getUser(req.cookies)
-//     .then((user) => {
-//       const { condition, data } = req.body;
-//       if (data.type === "folder") {
-//         database.query(
-//           "SELECT * FROM data WHERE user_username = ?",
-//           [user.username],
-//           (err, result) => {
-//             if (err) {
-//               return res.json({ message: "Error selecting data!" });
-//             } else {
-//               result.forEach((resultData) => {
-//                 if (
-//                   resultData.unique_path
-//                     .split("/")
-//                     .includes(data.unique_identifier)
-//                 ) {
-//                   updateDataPublicStatus(user, resultData, condition).catch(
-//                     (err) => {
-//                       console.log(err);
-//                     }
-//                   );
-//                 }
-//               });
-//             }
-//           }
-//         );
-//       }
-//       updateDataPublicStatus(user, data, condition)
-//         .then(() => {
-//           if (condition) {
-//             res.json({ message: `The ${data.type} has been made public` });
-//           } else {
-//             res.json({ message: `The ${data.type} has been made private` });
-//           }
-//         })
-//         .catch((err) => {
-//           if (condition) {
-//             res.json({ message: `Error making ${data.type} public!` });
-//           } else {
-//             res.json({ message: `Error making ${data.type} private!` });
-//           }
-//           console.log(err);
-//         });
-//     })
-//     .catch(() => {
-//       res.json({ message: "Unauthorized user!" });
-//     });
-// });
 
 /*----------------Update folder last access time----------------*/
 

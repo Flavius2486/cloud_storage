@@ -7,7 +7,7 @@
       @change="hideError()"
     />
   </div>
-  <div @click="getAvailablePaths()">
+  <div>
     <p class="modal-subtitle">Location</p>
     <v-select
       :options="availablePaths"

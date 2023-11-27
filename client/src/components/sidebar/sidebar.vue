@@ -71,13 +71,6 @@ export default {
           active: false,
           page: "starred",
         },
-        // {
-        //   icon: ["far", "user"],
-        //   color: "#5c9f19",
-        //   text: "Public",
-        //   active: false,
-        //   page: "public",
-        // },
         {
           icon: ["far", "trash-can"],
           color: "#d31c1c",
@@ -94,6 +87,7 @@ export default {
         button.active = false;
       });
       this.sidebarBtns[index].active = true;
+      console.log("OK");
       this.$router.replace({ name: this.sidebarBtns[index].page });
     },
     progressBar() {
@@ -112,7 +106,7 @@ export default {
     $route(to) {
       this.sidebarBtns.forEach((button) => {
         button.active = false;
-        if (button.page === to.name) {
+        if (to.fullPath.split("/").includes(button.page)) {
           button.active = true;
         }
       });

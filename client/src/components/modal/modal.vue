@@ -68,14 +68,16 @@ export default {
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
+  min-width: 200px;
 }
 
 .modal-header {
   display: flex;
   justify-content: space-between;
   color: #23232f;
-  font-size: 19px;
+  font-size: 18px;
   padding-bottom: 0px;
+  user-select: none;
 }
 
 .close-modal-btn {

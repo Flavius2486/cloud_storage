@@ -64,9 +64,7 @@ export default {
           });
       }
     },
-  },
-  watch: {
-    data(newVal) {
+    fetchPaths() {
       axios
         .post(
           `/api/fetch-data`,
@@ -80,7 +78,7 @@ export default {
           this.availablePaths = this.availablePaths.filter((folder) => {
             return !folder.unique_path
               .split("/")
-              .includes(newVal.unique_identifier);
+              .includes(this.data.unique_identifier);
           });
         });
     },

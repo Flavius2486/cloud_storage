@@ -58,15 +58,11 @@
         <DropdownOption
           :icon="['fas', 'folder-plus']"
           :customClass="'modal-create-folder'"
-          @click="showModal($event)"
+          @click="
+            showModal($event), $refs.createFolderModal.getAvailablePaths()
+          "
           >Folder</DropdownOption
         >
-        <!-- <DropdownOption
-          :icon="['fas', 'folder-open']"
-          :customClass="'modal-create-public-folder'"
-          @click="showModal($event)"
-          >Public Folder</DropdownOption
-        > -->
       </Dropdown>
     </div>
   </header>
@@ -95,18 +91,9 @@
     <CreatePrivateFolder
       @hide-modal="hideModalTrigger"
       @update-data="updateData()"
+      ref="createFolderModal"
     ></CreatePrivateFolder>
   </Modal>
-  <!-- <div v-show="filesStatus === null" class="show-uploading-status-btn">
-    <fa :icon="['fas', 'chevron-left']" />
-  </div> -->
-  <!-- <Modal
-    :title="'Create public folder'"
-    :customClass="'modal-create-public-folder'"
-    ref="Modal"
-  >
-    <CreatePublicFolder @hide-modal="hideModalTrigger"  @update-data="updateData()"></CreatePublicFolder>
-  </Modal> -->
 </template>
 
 <script>
@@ -202,6 +189,7 @@ export default {
   },
   methods: {
     abortUploading() {
+      this.reinitializeVariablesFileStatus();
       this.resumable.cancel();
       this.filesStatus = "aborting";
       axios
@@ -266,6 +254,18 @@ export default {
       for (let i = this.lastFileAdedIndex; i < files.length; i++) {
         //calculate the file group size
         fileGroupSize += files[i].size;
+        if (
+          (fileGroupSize / Math.pow(1024, 3)).toFixed(0) +
+            this.$store.state.usedMemory >=
+          this.$store.state.freeMemory
+        ) {
+          this.abortUploading();
+          this.$refs.MessageBox.showMessage(
+            "Disk memory is almost full. Aborting..."
+          );
+          resetData();
+          break;
+        }
         ///add the file to the array
         this.filesGroup.push(files[i]);
         //if the files group memory exeed 100 mb update the last file index that was added

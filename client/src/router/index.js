@@ -18,6 +18,18 @@ const routes = [
     },
   },
   {
+    path: "/search",
+    redirect: () => {
+      return { path: "/dashboard" };
+    },
+  },
+  {
+    path: "/download",
+    redirect: () => {
+      return { path: "/dashboard" };
+    },
+  },
+  {
     path: "/dashboard",
     name: "dashboard",
     component: () => import("@/views/DashboardView.vue"),
@@ -71,6 +83,14 @@ const routes = [
     component: () => import("@/views/FolderDataView.vue"),
     meta: {
       requiresAuth: true,
+    },
+  },
+  {
+    path: "/download/:identifier",
+    name: "download",
+    component: () => import("@/views/DownloadView.vue"),
+    meta: {
+      requiresAuth: false,
     },
   },
 ];

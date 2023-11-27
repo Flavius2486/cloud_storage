@@ -26,6 +26,7 @@
     "uninstall": "^0.0.0",
     "vue": "^3.2.13",
     "vue-cookies": "^1.8.3",
+    "vue-qrcode-component": "^2.1.1",
     "vue-router": "^4.0.3",
     "vue-select": "^4.0.0-beta.6",
     "vuejs-uploader": "^0.6.5",

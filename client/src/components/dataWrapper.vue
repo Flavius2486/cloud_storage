@@ -298,10 +298,21 @@
       :data="dataObjOpenedOptions"
       @hide-modal="hideModalTrigger"
       @update-data="$emit('update-data')"
+      ref="moveDataModal"
     ></MoveData>
   </Modal>
   <Modal :title="'Detalies'" :customClass="'modal-data-detalies'" ref="Modal">
     <DataDetalies :data="dataObjOpenedOptions"></DataDetalies>
+  </Modal>
+  <Modal
+    :title="'Temporary link'"
+    :customClass="'modal-download-link'"
+    ref="Modal"
+  >
+    <GenerateDownloadLink
+      ref="generateLinkModal"
+      :data="dataObjOpenedOptions"
+    ></GenerateDownloadLink>
   </Modal>
   <MessageBox
     ref="MessageBox"
@@ -312,10 +323,6 @@
     <div class="line"></div>
     <div class="options-container">
       <fa @click="updateSelectedData('starred')" :icon="['far', 'star']"></fa>
-      <!-- <fa
-        @click="updateSelectedData('public')"
-        :icon="['fas', 'users-slash']"
-      ></fa> -->
       <fa @click="downloadMultipleData()" :icon="['fas', 'download']"></fa>
       <fa
         @click="updateSelectedData('delete')"
@@ -346,6 +353,7 @@ import DropdownOption from "@/components/dropdown/dropdownOption";
 import Loader from "@/components/loader.vue";
 import Modal from "@/components/modal/modal.vue";
 import RenameData from "@/components/modal/modalContent/renameData.vue";
+import GenerateDownloadLink from "./modal/modalContent/generateDownloadLink.vue";
 import MoveData from "@/components/modal/modalContent/moveData.vue";
 import DataDetalies from "./modal/modalContent/dataDetalies.vue";
 import MessageBox from "@/components/notifications/messageBox.vue";
@@ -360,6 +368,7 @@ export default {
     MessageBox,
     MoveData,
     DataDetalies,
+    GenerateDownloadLink,
   },
   props: {
     data: {
@@ -368,6 +377,10 @@ export default {
       default: () => [],
     },
     page: {
+      type: String,
+      default: "",
+    },
+    prevPage: {
       type: String,
       default: "",
     },
@@ -426,7 +439,7 @@ export default {
                 name: "folderData",
                 params: {
                   folderIdentifier: this.dataObjOpenedOptions.unique_identifier,
-                  page: this.page,
+                  page: this.prevPage ? this.prevPage : this.page,
                 },
               });
             }
@@ -446,7 +459,7 @@ export default {
           modalClassName: "modal-move-data",
           actionType: "modal",
           show: this.page !== "deleted" ? true : false,
-          action: () => {},
+          action: () => this.$refs.moveDataModal.fetchPaths(),
         },
         {
           text: "Add to starred",
@@ -470,29 +483,6 @@ export default {
             this.updateData(false, this.dataObjOpenedOptions, "starred");
           },
         },
-        // {
-        //   text: "Move to public",
-        //   icon: ["fas", "users-slash"],
-        //   modalClassName: "",
-        //   actionType: "function",
-        //   show: true,
-        //   type: "public",
-        //   action: () => {
-        //     this.updateData(true, this.dataObjOpenedOptions, "public");
-        //   },
-        // },
-        // {
-        //   text: "Remove from public",
-        //   optionName: "public",
-        //   icon: ["fas", "users"],
-        //   modalClassName: "",
-        //   actionType: "function",
-        //   show: false,
-        //    type: "public",
-        //   action: () => {
-        //     this.updateData(false, this.dataObjOpenedOptions, "public");
-        //   },
-        // },
         {
           text: "Detalies",
           icon: ["fas", "circle-info"],
@@ -508,6 +498,16 @@ export default {
           actionType: "function",
           show: true,
           action: () => this.downloadData(this.dataObjOpenedOptions),
+        },
+        {
+          text: "Generate Link",
+          icon: ["fas", "download"],
+          modalClassName: "modal-download-link",
+          actionType: "modal",
+          show: true,
+          action: () => {
+            this.$refs.generateLinkModal.getDownloadLink();
+          },
         },
         {
           text: "Recover",
@@ -602,8 +602,8 @@ export default {
           { responseType: "blob", withCredentials: true }
         )
         .then((response) => {
-          if (response.data.message) {
-            this.showMessageBox(response.data.message);
+          if (response.headers.dataisavailable == 0) {
+            this.showMessageBox("File/folder not found!");
           } else {
             const blob = new Blob([response.data], {
               type: "application/zip",
@@ -624,6 +624,7 @@ export default {
       if (option.actionType === "function") {
         option.action();
       } else if (option.actionType === "modal") {
+        option.action();
         this.showModal(option.modalClassName);
       }
     },
@@ -886,6 +887,7 @@ export default {
       handler(newValue) {
         this.dataCopy = newValue;
         this.defaultSorting();
+        this.setSelectedfileType(0);
       },
     },
   },
@@ -914,6 +916,7 @@ body {
   padding: 0 25px;
   border-top: 2px solid #edeef8;
   font-weight: 500;
+  user-select: none;
 }
 
 .content--header {
