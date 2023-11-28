@@ -53,14 +53,6 @@ const routes = [
       requiresAuth: true,
     },
   },
-  // {
-  //   path: "/public",
-  //   name: "public",
-  //   component: () => import("@/views/PublicView.vue"),
-  //   meta: {
-  //     requiresAuth: true,
-  //   },
-  // },
   {
     path: "/deleted",
     name: "deleted",
@@ -91,6 +83,12 @@ const routes = [
     component: () => import("@/views/DownloadView.vue"),
     meta: {
       requiresAuth: false,
+    },
+  },
+  {
+    path: "/*",
+    redirect: () => {
+      return { path: "/dashboard" };
     },
   },
 ];

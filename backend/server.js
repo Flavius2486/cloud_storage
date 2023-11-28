@@ -379,7 +379,7 @@ setInterval(() => {
     result.forEach((link) => {
       if (
         currentDate.getTime() - link.creation_date.getTime() >
-        24 * 60 * 60 * 1000
+        60 * 60 * 1000
       ) {
         database.query(
           "DELETE FROM temporary_links WHERE link = ?",
@@ -921,7 +921,7 @@ async function validateTemporaryLink(link) {
         else if (
           linkData.length &&
           currentDate.getTime() - linkData[0].creation_date.getTime() <
-            24 * 60 * 60 * 1000
+            60 * 60 * 1000
         ) {
           database.query(
             "SELECT * FROM data WHERE unique_identifier = ?",
@@ -1178,7 +1178,7 @@ app.post("/api/fetch-data", (req, res) => {
           } else {
             dataArray = filterData(dataArray);
           }
-          checkDiskSpace("D:/").then((diskSpace) => {
+          checkDiskSpace("/").then((diskSpace) => {
             const freeMemory = (
               (diskSpace.free + usedMemory) /
               Math.pow(1024, 3)
@@ -1872,9 +1872,9 @@ app.post("/api/search", (req, res) => {
 // if (process.env.NODE_ENV === "production") {
 app.use(serveStatic("./public/"));
 app.get(/.*/, (req, res) => {
-  res.sendFile(path.resolve("./public/index.html"));
+  // res.sendFile(path.resolve("./public/index.html"));
 });
-// }
+// // }
 
 app.listen(3002, () => {
   console.log("Server listening on port 3002");

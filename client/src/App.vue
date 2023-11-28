@@ -2,8 +2,8 @@
   <router-view v-if="!$store.state.isAuthenticated" />
   <sidebar
     @click.stop
-    class="sidebar"
     @close-sidebar="hideSidebar"
+    class="sidebar"
     v-if="$store.state.isAuthenticated"
   ></sidebar>
   <div @click="hideSidebar" class="overlay-app hidden"></div>
@@ -62,7 +62,8 @@ export default {
         aset.style.backgroundColor = "#f7f8fb";
       });
       //hide info modal
-      if (this.$store.state.isAuthenticated) this.$refs.navbar.hideInfoModal();
+      if (this.$store.state.isAuthenticated && this.$refs.navbar)
+        this.$refs.navbar.hideInfoModal();
     },
   },
   mounted() {
@@ -70,7 +71,7 @@ export default {
   },
   created: function () {
     window.addEventListener("click", () => {
-      this.hideDropdowns(), this.hideSidebar();
+      this.hideDropdowns();
     });
     authoDeleteData();
   },
@@ -174,7 +175,7 @@ input:focus {
     position: absolute;
     height: 100%;
     width: 100%;
-    z-index: 122;
+    z-index: 11;
     filter: blur(5px);
   }
 }

@@ -87,7 +87,6 @@ export default {
         button.active = false;
       });
       this.sidebarBtns[index].active = true;
-      console.log("OK");
       this.$router.replace({ name: this.sidebarBtns[index].page });
     },
     progressBar() {
@@ -214,7 +213,7 @@ export default {
       #191b34
     );
     position: absolute;
-    z-index: 12;
+    z-index: 12000;
     padding: 10px 0;
     width: 220px;
     border-radius: 10px;

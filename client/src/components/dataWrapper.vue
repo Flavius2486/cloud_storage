@@ -501,7 +501,7 @@ export default {
         },
         {
           text: "Generate Link",
-          icon: ["fas", "download"],
+          icon: ["fas", "link"],
           modalClassName: "modal-download-link",
           actionType: "modal",
           show: true,
