@@ -1178,7 +1178,7 @@ app.post("/api/fetch-data", (req, res) => {
           } else {
             dataArray = filterData(dataArray);
           }
-          checkDiskSpace("/").then((diskSpace) => {
+          checkDiskSpace("D:/").then((diskSpace) => {
             const freeMemory = (
               (diskSpace.free + usedMemory) /
               Math.pow(1024, 3)

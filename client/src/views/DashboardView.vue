@@ -253,11 +253,11 @@ export default {
       //create files group to prevent using too much memory
       for (let i = this.lastFileAdedIndex; i < files.length; i++) {
         //calculate the file group size
-        fileGroupSize += files[i].size;
+        fileGroupSize += Number(files[i].size);
         if (
           (fileGroupSize / Math.pow(1024, 3)).toFixed(0) +
-            this.$store.state.usedMemory >=
-          this.$store.state.freeMemory
+            Number(this.$store.state.usedMemory) >=
+          Number(this.$store.state.freeMemory)
         ) {
           this.abortUploading();
           this.$refs.MessageBox.showMessage(
