@@ -41,7 +41,7 @@ export default {
     return {
       dataHasLink: false,
       link: "",
-      baseURL: window.location.origin,
+      baseURL: window.location.origin + "/download",
     };
   },
   methods: {
