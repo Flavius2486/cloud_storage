@@ -4,7 +4,6 @@ import router from "./router";
 import store from "./store";
 import VueCookies from "vue-cookies";
 import VueSelect from "vue-select";
-import VueQRCodeComponent from "vue-qrcode-component";
 
 import "vue-select/dist/vue-select.css";
 import { library } from "@fortawesome/fontawesome-svg-core";
@@ -19,7 +18,6 @@ createApp(App)
   .use(store)
   .use(VueCookies)
   .use(router)
-  .component("qr-code", VueQRCodeComponent)
   .component("fa", FontAwesomeIcon)
   .component("v-select", VueSelect)
   .mount("#app");

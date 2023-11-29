@@ -10,32 +10,47 @@ export default {
   mounted() {
     axios
       .post(
-        `/api/tmp-link-download`,
+        `${import.meta.env.VITE_API_URL}/tmp-link-download`,
         {
           link: this.$route.params.identifier,
         },
         { responseType: "blob", withCredentials: true }
       )
-      .then((response) => {
-        console.log(response);
-        if (response.headers.dataisavailable == 1) {
-          const blob = new Blob([response.data], {
-            type: "application/zip",
-          });
+      .then((file) => {
+        axios
+          .post(
+            `${import.meta.env.VITE_API_URL}/get-data-name`,
+            { link: this.$route.params.identifier },
+            { withCredentials: true }
+          )
+          .then((response) => {
+            if (response.data.dataName) {
+              const blob = new Blob([file.data], {
+                type: "application/zip",
+              });
 
-          const link = document.createElement("a");
-          link.href = window.URL.createObjectURL(blob);
-          link.download = response.headers.dataname;
-          link.click();
-          window.close();
-        } else {
-          this.$router.replace({
-            name: "login",
+              const link = document.createElement("a");
+              link.href = window.URL.createObjectURL(blob);
+              link.download = response.data.dataName;
+              link.click();
+            } else {
+              this.$router.replace({
+                name: "login",
+              });
+            }
+          })
+          .catch((err) => {
+            console.log(err);
+            this.$router.replace({
+              name: "login",
+            });
           });
-        }
       })
       .catch((err) => {
         console.log(err);
+        this.$router.replace({
+          name: "login",
+        });
       });
   },
 };

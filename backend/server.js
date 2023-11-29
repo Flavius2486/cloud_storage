@@ -153,7 +153,7 @@ function updateLastAccessedDate(uniqueIdentifier, user) {
     "UPDATE data SET last_accessed = ? WHERE unique_identifier = ? AND user_username = ?",
     [new Date(), uniqueIdentifier, user.username],
     (err, result) => {
-      if (err) throw err;
+      if (err) console.log(err);
     }
   );
 }
@@ -202,7 +202,7 @@ app.post("/api/login", (req, res) => {
                 deleteRemainingChunks(user)
                   .then(() => {})
                   .catch((err) => {
-                    throw err;
+                    console.log(err);
                   });
                 fs.rm(
                   `uploads/${user.username}/tmp_folder`,
@@ -338,7 +338,7 @@ function updateLastDateAccessTokenRefreshed(refreshToken) {
     "UPDATE tokens SET access_token_refresh_date = ? WHERE refresh_token = ?",
     [refreshToken, new Date()],
     (err) => {
-      if (err) throw err;
+      if (err) console.log(err);
     }
   );
 }
@@ -354,44 +354,48 @@ function generateAccessToken(user) {
 
 setInterval(() => {
   database.query("SELECT * FROM tokens", (err, result) => {
-    if (err) throw err;
-    const currentDate = new Date();
-    result.forEach((token) => {
-      if (
-        currentDate.getTime() - token.access_token_refresh_date.getTime() >
-        32 * 60 * 1000
-      ) {
-        database.query(
-          "DELETE FROM tokens WHERE refresh_token = ?",
-          [token.refresh_token],
-          (err) => {
-            if (err) {
-              throw err;
+    if (err) console.log(err);
+    else {
+      const currentDate = new Date();
+      result.forEach((token) => {
+        if (
+          currentDate.getTime() - token.access_token_refresh_date.getTime() >
+          32 * 60 * 1000
+        ) {
+          database.query(
+            "DELETE FROM tokens WHERE refresh_token = ?",
+            [token.refresh_token],
+            (err) => {
+              if (err) {
+                console.log(err);
+              }
             }
-          }
-        );
-      }
-    });
+          );
+        }
+      });
+    }
   });
   database.query("SELECT * FROM temporary_links", (err, result) => {
-    if (err) throw err;
-    const currentDate = new Date();
-    result.forEach((link) => {
-      if (
-        currentDate.getTime() - link.creation_date.getTime() >
-        60 * 60 * 1000
-      ) {
-        database.query(
-          "DELETE FROM temporary_links WHERE link = ?",
-          [link.link],
-          (err) => {
-            if (err) {
-              throw err;
+    if (err) console.log(err);
+    else {
+      const currentDate = new Date();
+      result.forEach((link) => {
+        if (
+          currentDate.getTime() - link.creation_date.getTime() >
+          60 * 60 * 1000
+        ) {
+          database.query(
+            "DELETE FROM temporary_links WHERE link = ?",
+            [link.link],
+            (err) => {
+              if (err) {
+                console.log(err);
+              }
             }
-          }
-        );
-      }
-    });
+          );
+        }
+      });
+    }
   });
 }, 60 * 60 * 1000); // 1 hour in milliseconds
 
@@ -854,12 +858,10 @@ app.post("/api/download", (req, res) => {
         );
         fs.access(file, fs.constants.F_OK, (err) => {
           if (err) {
-            res.setHeader("dataIsAvailable", 0);
             res.json({});
           } else {
-            res.setHeader("dataIsAvailable", 1);
             res.sendFile(file, (err) => {
-              if (err) throw err;
+              if (err) console.log(err);
             });
           }
         });
@@ -868,39 +870,43 @@ app.post("/api/download", (req, res) => {
           "SELECT * FROM data WHERE user_username=?",
           [user.username],
           (err, result) => {
-            if (err) throw err;
-            moveAllFiles(result, user, data)
-              .then(() => {
-                zipDirectory(
-                  `uploads/${user.username}/tmp_folder/${data.name}`,
-                  `uploads/${user.username}/tmp_folder/${data.name}.zip`
-                )
-                  .then(() => {
-                    fs.rm(
-                      `uploads/${user.username}/tmp_folder/${data.name}`,
-                      { recursive: true },
-                      (err) => {
-                        if (err) {
-                          console.error(
-                            `Error deleting folder: ${err.message}. User: ${user.username}`
-                          );
+            if (err) {
+              console.log(err);
+              res.json({});
+            } else {
+              moveAllFiles(result, user, data)
+                .then(() => {
+                  zipDirectory(
+                    `uploads/${user.username}/tmp_folder/${data.name}`,
+                    `uploads/${user.username}/tmp_folder/${data.name}.zip`
+                  )
+                    .then(() => {
+                      fs.rm(
+                        `uploads/${user.username}/tmp_folder/${data.name}`,
+                        { recursive: true },
+                        (err) => {
+                          if (err) {
+                            console.error(
+                              `Error deleting folder: ${err.message}. User: ${user.username}`
+                            );
+                          }
                         }
-                      }
-                    );
-                    res.sendFile(
-                      path.resolve(
-                        `uploads/${user.username}/tmp_folder/${data.name}.zip`
-                      ),
-                      (err) => {
-                        if (err) throw err;
-                      }
-                    );
-                  })
-                  .catch((err) => console.error(err));
-              })
-              .catch((error) => {
-                console.error(`Error moving files: ${error}`);
-              });
+                      );
+                      res.sendFile(
+                        path.resolve(
+                          `uploads/${user.username}/tmp_folder/${data.name}.zip`
+                        ),
+                        (err) => {
+                          if (err) console.log(err);
+                        }
+                      );
+                    })
+                    .catch((err) => console.error(err));
+                })
+                .catch((error) => {
+                  console.error(`Error moving files: ${error}`);
+                });
+            }
           }
         );
       }
@@ -938,10 +944,18 @@ async function validateTemporaryLink(link) {
   });
 }
 
+app.post("/api/get-data-name", (req, res) => {
+  const { link } = req.body;
+  validateTemporaryLink(link).then((data) => {
+    res.json({ dataName: data.name });
+  });
+});
+
 app.post("/api/tmp-link-download", (req, res) => {
   const { link } = req.body;
   validateTemporaryLink(link)
     .then((data) => {
+      res.setHeader("Content-Type", "application/json");
       const user = { username: data.user_username };
       if (data.type === "file") {
         const file = path.resolve(
@@ -949,13 +963,10 @@ app.post("/api/tmp-link-download", (req, res) => {
         );
         fs.access(file, fs.constants.F_OK, (err) => {
           if (err) {
-            res.setHeader("dataIsAvailable", 0);
             res.json({});
           } else {
-            res.setHeader("dataIsAvailable", 1);
-            res.setHeader("dataName", data.name);
             res.sendFile(file, (err) => {
-              if (err) throw err;
+              if (err) console.log(err);
             });
           }
         });
@@ -964,47 +975,50 @@ app.post("/api/tmp-link-download", (req, res) => {
           "SELECT * FROM data WHERE user_username=?",
           [user.username],
           (err, result) => {
-            if (err) throw err;
-            moveAllFiles(result, user, data)
-              .then(() => {
-                zipDirectory(
-                  `uploads/${user.username}/tmp_folder/${data.name}`,
-                  `uploads/${user.username}/tmp_folder/${data.name}.zip`
-                )
-                  .then(() => {
-                    fs.rm(
-                      `uploads/${user.username}/tmp_folder/${data.name}`,
-                      { recursive: true },
-                      (err) => {
-                        if (err) {
-                          console.log(
-                            `Error deleting folder: ${err.message}. User: ${user.username}`
-                          );
+            if (err) {
+              console.log(err);
+              res.json({});
+            } else {
+              moveAllFiles(result, user, data)
+                .then(() => {
+                  zipDirectory(
+                    `uploads/${user.username}/tmp_folder/${data.name}`,
+                    `uploads/${user.username}/tmp_folder/${data.name}.zip`
+                  )
+                    .then(() => {
+                      fs.rm(
+                        `uploads/${user.username}/tmp_folder/${data.name}`,
+                        { recursive: true },
+                        (err) => {
+                          if (err) {
+                            console.log(
+                              `Error deleting folder: ${err.message}. User: ${user.username}`
+                            );
+                          }
                         }
-                      }
-                    );
-                    res.sendFile(
-                      path.resolve(
-                        `uploads/${user.username}/tmp_folder/${data.name}.zip`
-                      ),
-                      (err) => {
-                        if (err) console.log(err);
-                      }
-                    );
-                    res.setHeader("dataIsAvailable", 1);
-                    res.setHeader("dataName", data.name);
-                  })
-                  .catch((err) => console.error(err));
-              })
-              .catch((error) => {
-                console.log(`Error moving files: ${error}`);
-              });
+                      );
+                      res.sendFile(
+                        path.resolve(
+                          `uploads/${user.username}/tmp_folder/${data.name}.zip`
+                        ),
+                        (err) => {
+                          if (err) console.log(err);
+                        }
+                      );
+                      res.setHeader("dataIsAvailable", 1);
+                      res.setHeader("dataName", data.name);
+                    })
+                    .catch((err) => console.error(err));
+                })
+                .catch((error) => {
+                  console.log(`Error moving files: ${error}`);
+                });
+            }
           }
         );
       }
     })
     .catch(() => {
-      res.setHeader("dataIsAvailable", 0);
       res.json({});
     });
 });
@@ -1017,9 +1031,13 @@ app.post("/api/get-download-link", (req, res) => {
         "SELECT * FROM temporary_links WHERE unique_identifier = ?",
         [data.unique_identifier],
         (err, result) => {
-          if (err) throw err;
-          if (result.length) res.json({ link: result[0].link });
-          else res.json({ link: null });
+          if (err) {
+            console.log(err);
+            res.json({ link: null });
+          } else {
+            if (result.length) res.json({ link: result[0].link });
+            else res.json({ link: null });
+          }
         }
       );
     })
@@ -1677,7 +1695,7 @@ async function deleteRemainingChunks(user) {
           fs.unlink(
             path.join(`./uploads/${user.username}/chunks/`, file),
             (error) => {
-              if (err) throw error;
+              if (err) console.log(error);
             }
           );
         }
@@ -1695,8 +1713,8 @@ app.post("/api/delete-chunks", (req, res) => {
           res.json({ message: "Chunks deleted successfully" });
         })
         .catch((err) => {
+          console.log(err);
           res.json({ message: "Error deleting remaining chunks" });
-          throw err;
         });
     })
     .catch(() => {
@@ -1775,8 +1793,11 @@ app.post("/api/update-last-access", (req, res) => {
         "UPDATE data SET last_accessed = ? WHERE user_username = ? AND unique_identifier = ? ",
         [new Date(), user.username, folderIdentifier],
         (err) => {
-          if (err) throw err;
-          res.json({ message: "Last accessed date updated succesfully!" });
+          if (err) {
+            console.log(err);
+            res.json({});
+          } else
+            res.json({ message: "Last accessed date updated succesfully!" });
         }
       );
     })
@@ -1796,71 +1817,81 @@ app.post("/api/search", (req, res) => {
         "SELECT * FROM data WHERE user_username = ?",
         [user.username],
         (err, result) => {
-          if (err) throw err;
-          let category = query[0];
-          let folderName = query[1];
-          let searchString = query[2];
-          let searchArray = query[2].split("-");
-          let currentTime = new Date();
-          let oneWeekMills = 7 * 24 * 60 * 60 * 1000;
-          dataArray = result.filter((obj) => {
-            if (
-              category.toLowerCase() === "deleted" &&
-              obj.deletion_date !== null
-            )
-              return true;
-            else if (obj.deletion_date === null) {
-              if (category.toLowerCase() === "starred" && obj.starred === 1)
-                return true;
-              else if (
-                category.toLowerCase() === "recents" &&
-                currentTime.getTime() - obj.last_accessed.getTime() <
-                  oneWeekMills
+          if (err) {
+            console.log(err);
+            res.json({});
+          } else {
+            let category = query[0];
+            let folderName = query[1];
+            let searchString = query[2];
+            let searchArray = query[2].split("-");
+            let currentTime = new Date();
+            let oneWeekMills = 7 * 24 * 60 * 60 * 1000;
+            dataArray = result.filter((obj) => {
+              if (
+                category.toLowerCase() === "deleted" &&
+                obj.deletion_date !== null
               )
                 return true;
-              else if (
-                category.toLowerCase() === "dashboard" &&
-                obj.deletion_date === null
-              ) {
-                return true;
+              else if (obj.deletion_date === null) {
+                if (category.toLowerCase() === "starred" && obj.starred === 1)
+                  return true;
+                else if (
+                  category.toLowerCase() === "recents" &&
+                  currentTime.getTime() - obj.last_accessed.getTime() <
+                    oneWeekMills
+                )
+                  return true;
+                else if (
+                  category.toLowerCase() === "dashboard" &&
+                  obj.deletion_date === null
+                ) {
+                  return true;
+                }
               }
-            }
-            return false;
-          });
-          dataArray = dataArray.filter((obj) => {
-            if (category.toLowerCase() !== "dashboard" && folderName === "/") {
-              let notNested = true;
-              notNested = !dataArray.find((obj2) =>
-                obj.unique_path.split("/").includes(obj2.unique_identifier)
-              );
-              if (notNested) return true;
-            }
-            if (
-              (folderName === "/" && obj.frontend_path === "") ||
-              folderName.toLowerCase() === "all" ||
-              obj.frontend_path
-                .toLowerCase()
-                .split("/")
-                .includes(folderName.toLowerCase())
-            )
-              return true;
-            return false;
-          });
-          searchArray.forEach((word) => {
-            dataArray = dataArray.filter((obj) => {
-              if (obj.name.toLowerCase().includes(word)) return true;
               return false;
             });
-          });
-          let tmpObj;
-          dataArray.forEach((obj, index) => {
-            if (obj.name.toLowerCase().includes(searchString.toLowerCase())) {
-              tmpObj = obj;
-              dataArray.splice(index, 1);
-              dataArray.unshift(tmpObj);
-            }
-          });
-          res.json({ data: dataArray });
+            dataArray = dataArray.filter((obj) => {
+              if (
+                category.toLowerCase() !== "dashboard" &&
+                folderName === "/"
+              ) {
+                let notNested = true;
+                notNested = !dataArray.find((obj2) =>
+                  obj.unique_path.split("/").includes(obj2.unique_identifier)
+                );
+                if (notNested) return true;
+              }
+              if (
+                (folderName === "/" && obj.frontend_path === "") ||
+                folderName.toLowerCase() === "all" ||
+                obj.frontend_path
+                  .toLowerCase()
+                  .split("/")
+                  .includes(folderName.toLowerCase())
+              )
+                return true;
+              return false;
+            });
+            searchArray.forEach((word) => {
+              dataArray = dataArray.filter((obj) => {
+                if (obj.name.toLowerCase().includes(word)) return true;
+                return false;
+              });
+            });
+            let tmpObj;
+            dataArray.forEach((obj, index) => {
+              obj.size = (Number(obj.size) / Math.pow(1024, 2)).toFixed(2);
+              obj.last_accessed = getFormatedDate(obj.last_accessed);
+              obj.creation_date = getFormatedDate(obj.creation_date);
+              if (obj.name.toLowerCase().includes(searchString.toLowerCase())) {
+                tmpObj = obj;
+                dataArray.splice(index, 1);
+                dataArray.unshift(tmpObj);
+              }
+            });
+            res.json({ data: dataArray });
+          }
         }
       );
     })
@@ -1872,7 +1903,7 @@ app.post("/api/search", (req, res) => {
 // if (process.env.NODE_ENV === "production") {
 app.use(serveStatic("./public/"));
 app.get(/.*/, (req, res) => {
-  // res.sendFile(path.resolve("./public/index.html"));
+  res.sendFile(path.resolve("./public/index.html"));
 });
 // // }
 

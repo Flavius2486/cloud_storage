@@ -20,11 +20,11 @@
 </template>
 
 <script>
-import sidebar from "@/components/sidebar/sidebar";
-import navbar from "@/components/navbar";
+import sidebar from "@/components/sidebar/sidebar.vue";
+import navbar from "@/components/navbar.vue";
 // import fetchData from "@/utils/fetchData";
-import refreshToken from "@/utils/refreshToken";
-import authoDeleteData from "@/utils/autoDeleteData";
+import refreshToken from "@/utils/refreshToken.js";
+import authoDeleteData from "@/utils/autoDeleteData.js";
 
 export default {
   name: "App",

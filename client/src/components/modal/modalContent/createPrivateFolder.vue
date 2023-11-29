@@ -46,7 +46,7 @@ export default {
     getAvailablePaths() {
       axios
         .post(
-          `/api/fetch-data`,
+          `${import.meta.env.VITE_API_URL}/fetch-data`,
           {
             dataCategory: "folders",
           },
@@ -78,7 +78,7 @@ export default {
       } else {
         axios
           .post(
-            `/api/create-folder`,
+            `${import.meta.env.VITE_API_URL}/create-folder`,
             {
               isPublic: false,
               name: folderName,

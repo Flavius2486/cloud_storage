@@ -1,52 +1,30 @@
 {
   "name": "client",
-  "version": "0.1.0",
+  "version": "0.0.0",
   "private": true,
   "scripts": {
-    "serve": "vue-cli-service serve --port 3001",
-    "build": "vue-cli-service build",
-    "lint": "vue-cli-service lint"
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
   },
   "dependencies": {
-    "@fortawesome/fontawesome-svg-core": "^6.4.0",
-    "@fortawesome/free-brands-svg-icons": "^6.4.0",
-    "@fortawesome/free-regular-svg-icons": "^6.4.0",
-    "@fortawesome/free-solid-svg-icons": "^6.4.0",
-    "@fortawesome/vue-fontawesome": "^3.0.3",
-    "axios": "^1.4.0",
-    "core-js": "^3.31.0",
-    "crypto": "^1.0.1",
-    "crypto-browserify": "^3.12.0",
-    "fetch-blob": "^4.0.0",
-    "formdata-polyfill": "^4.0.10",
-    "jwt-decode": "^3.1.2",
-    "path": "^0.12.7",
-    "resumable": "^0.0.1-1",
+    "@fortawesome/fontawesome-svg-core": "^6.4.2",
+    "@fortawesome/free-brands-svg-icons": "^6.4.2",
+    "@fortawesome/free-regular-svg-icons": "^6.4.2",
+    "@fortawesome/free-solid-svg-icons": "^6.4.2",
+    "@fortawesome/vue-fontawesome": "^3.0.5",
+    "axios": "^1.6.2",
+    "pinia": "^2.1.7",
+    "qrcode-vue3": "^1.6.8",
     "resumablejs": "^1.1.0",
-    "uninstall": "^0.0.0",
-    "vue": "^3.2.13",
     "vue-cookies": "^1.8.3",
     "vue-qrcode-component": "^2.1.1",
-    "vue-router": "^4.0.3",
+    "vue-router": "^4.2.5",
     "vue-select": "^4.0.0-beta.6",
-    "vuejs-uploader": "^0.6.5",
-    "vuex": "^4.0.0"
+    "vuex": "^4.1.0"
   },
   "devDependencies": {
-    "@babel/core": "^7.12.16",
-    "@babel/eslint-parser": "^7.12.16",
-    "@vue/cli-plugin-babel": "~5.0.0",
-    "@vue/cli-plugin-eslint": "~5.0.0",
-    "@vue/cli-plugin-router": "~5.0.0",
-    "@vue/cli-plugin-vuex": "~5.0.0",
-    "@vue/cli-service": "~5.0.0",
-    "dotenv": "^16.3.1",
-    "eslint": "^7.32.0",
-    "eslint-config-prettier": "^8.3.0",
-    "eslint-plugin-prettier": "^4.0.0",
-    "eslint-plugin-vue": "^8.0.3",
-    "prettier": "^2.4.1"
-  },
-  "_id": "client@0.1.0",
-  "readme": "ERROR: No README data found!"
+    "@vitejs/plugin-vue": "^4.4.0",
+    "vite": "^4.4.11"
+  }
 }

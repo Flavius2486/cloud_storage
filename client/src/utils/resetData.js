@@ -2,7 +2,7 @@ import axios from "axios";
 
 const resetData = () => {
   axios
-    .post(`/api/reset-data`, {}, { withCredentials: true })
+    .post(`${import.meta.env.VITE_API_URL}/reset-data`, {}, { withCredentials: true })
     .then(() => {})
     .catch((err) => {
       throw err;

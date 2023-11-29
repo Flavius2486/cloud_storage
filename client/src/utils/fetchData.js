@@ -5,7 +5,7 @@ const fetchData = async (dataCategory) => {
   store.commit("setDataStatus", { state: false });
   try {
     const response = await axios.post(
-      `/api/fetch-data`,
+      `${import.meta.env.VITE_API_URL}/fetch-data`,
       {
         dataCategory: dataCategory,
       },

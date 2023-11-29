@@ -3,7 +3,7 @@ import axios from "axios";
 const refreshToken = () => {
   axios
     .post(
-      `/api/refresh-token`,
+      `${import.meta.env.VITE_API_URL}/refresh-token`,
       {},
       {
         withCredentials: true,

@@ -3,7 +3,7 @@
 </template>
 
 <script>
-import DataWrapper from "@/components/dataWrapper";
+import DataWrapper from "@/components/dataWrapper.vue";
 import axios from "axios";
 
 export default {
@@ -22,7 +22,7 @@ export default {
         query = this.$route.params.query.split("?");
         axios
           .post(
-            `/api/search`,
+            `${import.meta.env.VITE_API_URL}/search`,
             { query: query },
             { withCredentials: true }
           )

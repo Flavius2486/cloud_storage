@@ -54,7 +54,7 @@
 
 <script>
 import Dropdown from "@/components/dropdown/dropdown.vue";
-import DropdownOption from "@/components/dropdown/dropdownOption";
+import DropdownOption from "@/components/dropdown/dropdownOption.vue";
 import MessageBox from "@/components/notifications/messageBox.vue";
 import axios from "axios";
 
@@ -91,7 +91,7 @@ export default {
     },
     logout() {
       axios
-        .post(`/api/logout`, {}, { withCredentials: true })
+        .post(`${import.meta.env.VITE_API_URL}/logout`, {}, { withCredentials: true })
         .then(() => {
           this.$router.go();
         })

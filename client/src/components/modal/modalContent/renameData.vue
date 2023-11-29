@@ -33,7 +33,7 @@ export default {
         newNameInput.style.borderColor = "#CDCDD6";
         axios
           .post(
-            `/api/rename-data`,
+            `${import.meta.env.VITE_API_URL}/rename-data`,
             {
               newName: newNameInput.value,
               data: this.data,

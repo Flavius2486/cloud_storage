@@ -349,13 +349,13 @@
 import axios from "axios";
 
 import Dropdown from "@/components/dropdown/dropdown.vue";
-import DropdownOption from "@/components/dropdown/dropdownOption";
+import DropdownOption from "@/components/dropdown/dropdownOption.vue";
 import Loader from "@/components/loader.vue";
 import Modal from "@/components/modal/modal.vue";
 import RenameData from "@/components/modal/modalContent/renameData.vue";
-import GenerateDownloadLink from "./modal/modalContent/generateDownloadLink.vue";
+import GenerateDownloadLink from "@/components/modal/modalContent/generateDownloadLink.vue";
 import MoveData from "@/components/modal/modalContent/moveData.vue";
-import DataDetalies from "./modal/modalContent/dataDetalies.vue";
+import DataDetalies from "@/components/modal/modalContent/dataDetalies.vue";
 import MessageBox from "@/components/notifications/messageBox.vue";
 
 export default {
@@ -575,7 +575,7 @@ export default {
     updateData(isTrue, obj, route) {
       axios
         .post(
-          `/api/${route}`,
+          `${import.meta.env.VITE_API_URL}/${route}`,
           {
             condition: isTrue,
             data: obj,
@@ -595,14 +595,14 @@ export default {
     downloadData(data) {
       axios
         .post(
-          `/api/download`,
+          `${import.meta.env.VITE_API_URL}/download`,
           {
             data: data,
           },
           { responseType: "blob", withCredentials: true }
         )
         .then((response) => {
-          if (response.headers.dataisavailable == 0) {
+          if (!response.data) {
             this.showMessageBox("File/folder not found!");
           } else {
             const blob = new Blob([response.data], {

@@ -4,7 +4,7 @@ import axios from "axios";
 const isAuthenticated = async () => {
   try {
     const response = await axios.post(
-      `/api/verify-auth`,
+      `${import.meta.env.VITE_API_URL}/verify-auth`,
       {},
       {
         withCredentials: true,

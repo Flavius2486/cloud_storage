@@ -51,7 +51,7 @@ export default {
         }
         axios
           .post(
-            `/api/set-new-path`,
+            `${import.meta.env.VITE_API_URL}/set-new-path`,
             {
               targetFolder: this.selectedNewPath,
               dataToMove: this.data,
@@ -67,7 +67,7 @@ export default {
     fetchPaths() {
       axios
         .post(
-          `/api/fetch-data`,
+          `${import.meta.env.VITE_API_URL}/fetch-data`,
           {
             dataCategory: "folders",
           },

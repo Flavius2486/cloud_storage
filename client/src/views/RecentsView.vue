@@ -10,7 +10,7 @@
 </template>
 
 <script>
-import DataWrapper from "@/components/dataWrapper";
+import DataWrapper from "@/components/dataWrapper.vue";
 import fetchData from "@/utils/fetchData";
 
 export default {
@@ -39,6 +39,7 @@ export default {
 
 <style scoped>
 .recents-view__header {
+  user-select: none;
   padding: 25px;
   background-color: #f7f8fb;
 }

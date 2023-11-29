@@ -86,7 +86,7 @@ export default {
       if (!error) {
         axios
           .post(
-            `/api/login`,
+            `${import.meta.env.VITE_API_URL}/login`,
             {
               email_username: this.email_username,
               password: this.password,

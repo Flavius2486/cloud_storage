@@ -2,7 +2,7 @@ import axios from "axios";
 
 const autoDeleteData = () => {
   axios
-    .post(`/api/auto-delete-data`, {}, { withCredentials: true })
+    .post(`${import.meta.env.VITE_API_URL}/auto-delete-data`, {}, { withCredentials: true })
     .then(() => {})
     .catch((err) => {
       console.log(err);

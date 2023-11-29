@@ -9,11 +9,28 @@
         </div>
       </div>
       <div class="qr-code-container">
-        <qr-code
-          :size="150"
-          color="black"
-          :text="baseURL + '/' + link"
-        ></qr-code>
+        <QRCodeVue3
+          :width="200"
+          :height="200"
+          value="{{baseURL }}/{{ link }}"
+          :qrOptions="{
+            typeNumber: 0,
+            mode: 'Byte',
+            errorCorrectionLevel: 'H',
+          }"
+          :dotsOptions="{
+            type: 'dots',
+            color: '#3878e0',
+            gradient: {
+              type: 'linear',
+              rotation: 0,
+              colorStops: [
+                { offset: 0, color: '#3878e0' },
+                { offset: 1, color: '#3878e0' },
+              ],
+            },
+          }"
+        />
       </div>
     </div>
     <div v-if="!dataHasLink" class="modal-btn" @click="generateLink()">
@@ -25,11 +42,15 @@
 
 <script>
 import "@/components/modal/modalContent/style.css";
+import QRCodeVue3 from "qrcode-vue3";
 import axios from "axios";
 
 export default {
   name: "generate-download-link",
   emits: ["show-message"],
+  components: {
+    QRCodeVue3,
+  },
   props: {
     data: {
       type: Object,
@@ -51,7 +72,7 @@ export default {
     getDownloadLink() {
       axios
         .post(
-          "/api/get-download-link",
+          `${import.meta.env.VITE_API_URL}/get-download-link`,
           { data: this.data },
           { withCredentials: true }
         )
@@ -71,7 +92,7 @@ export default {
     generateLink() {
       axios
         .post(
-          "/api/generate-download-link",
+          `${import.meta.env.VITE_API_URL}/generate-download-link`,
           { data: this.data },
           { withCredentials: true }
         )
@@ -87,7 +108,7 @@ export default {
     deleteLink() {
       axios
         .post(
-          "/api/delete-download-link",
+          `${import.meta.env.VITE_API_URL}/delete-download-link`,
           { data: this.data },
           { withCredentials: true }
         )

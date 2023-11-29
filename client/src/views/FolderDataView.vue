@@ -34,7 +34,7 @@ export default {
       this.$store.commit("setDataStatus", { state: false });
       axios
         .post(
-          `/api/folder-data`,
+          `${import.meta.env.VITE_API_URL}/folder-data`,
           {
             folderIdentifier: this.$route.params.folderIdentifier,
             page: this.prevPage,
@@ -54,7 +54,7 @@ export default {
     updateFolderLastAccesse() {
       axios
         .post(
-          `/api/update-last-access`,
+          `${import.meta.env.VITE_API_URL}/update-last-access`,
           {
             folderIdentifier: this.$route.params.folderIdentifier,
           },

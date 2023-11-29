@@ -100,12 +100,11 @@
 import Resumable from "resumablejs";
 
 import Dropdown from "@/components/dropdown/dropdown.vue";
-import DropdownOption from "@/components/dropdown/dropdownOption";
-import DataWrapper from "@/components/dataWrapper";
+import DropdownOption from "@/components/dropdown/dropdownOption.vue";
+import DataWrapper from "@/components/dataWrapper.vue";
 import FilesActionStatus from "@/components/notifications/filesActionStatus.vue";
 import Modal from "@/components/modal/modal.vue";
 import CreatePrivateFolder from "@/components/modal/modalContent/createPrivateFolder.vue";
-// import CreatePublicFolder from "@/components/modal/modalContent/createPublicFolder.vue";
 import MessageBox from "@/components/notifications/messageBox.vue";
 
 import fetchData from "@/utils/fetchData";
@@ -120,7 +119,6 @@ export default {
     FilesActionStatus,
     Modal,
     CreatePrivateFolder,
-    // CreatePublicFolder,
     MessageBox,
   },
   data() {
@@ -141,7 +139,7 @@ export default {
   },
   mounted() {
     this.resumable = new Resumable({
-      target: `/api/upload`,
+      target: `${import.meta.env.VITE_API_URL}/upload`,
       testChunks: false,
       chunkSize: 10 * 1024 * 1024,
       simultaneousUploads: 1,
@@ -193,7 +191,11 @@ export default {
       this.resumable.cancel();
       this.filesStatus = "aborting";
       axios
-        .post("/api/delete-chunks", {}, { withCredentials: true })
+        .post(
+          `${import.meta.env.VITE_API_URL}/delete-chunks`,
+          {},
+          { withCredentials: true }
+        )
         .then(() => {
           this.filesStatus = "aborted";
         })
@@ -334,6 +336,7 @@ export default {
 /*---------------Dashboard header------------------*/
 
 .dashboard-view__header {
+  user-select: none;
   padding: 25px;
   background-color: #f7f8fb;
 }
