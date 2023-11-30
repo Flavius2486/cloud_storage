@@ -12,24 +12,20 @@
         <QRCodeVue3
           :width="200"
           :height="200"
-          value="{{baseURL }}/{{ link }}"
+          :value="baseURL + '/' + link"
           :qrOptions="{
-            typeNumber: 0,
+            typeNumber: '0',
             mode: 'Byte',
-            errorCorrectionLevel: 'H',
+            errorCorrectionLevel: 'Q',
           }"
-          :dotsOptions="{
-            type: 'dots',
-            color: '#3878e0',
-            gradient: {
-              type: 'linear',
-              rotation: 0,
-              colorStops: [
-                { offset: 0, color: '#3878e0' },
-                { offset: 1, color: '#3878e0' },
-              ],
-            },
+          :imageOptions="{
+            hideBackgroundDots: true,
+            imageSize: 0.4,
+            margin: 0,
+            padding: 0,
           }"
+          :dotsOptions="{ type: 'square', color: 'black' }"
+          :cornersSquareOptions="{ type: 'square', color: 'black' }"
         />
       </div>
     </div>
