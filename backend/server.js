@@ -508,11 +508,38 @@ function setFileUniquePath(i) {
         filesArray[i].uniquePath.length === 0 &&
         filesArray[i].uniquePath.length <= foldersArray[k].uniquePath.length
       ) {
-        foldersArray[k].size += filesArray[i].size;
+        // foldersArray[k].size += filesArray[i].size;
         filesArray[i].uniquePath = [...foldersArray[k].uniquePath]; // Make a copy
         filesArray[i].uniquePath.push(foldersArray[k].uniqueName); // Add uniqueName to the copied array
       }
     }
+  }
+}
+
+function updateFolderSize(file, user) {
+  if (file.uniquePath.length) {
+    file.uniquePath.split("/").forEach((folderId) => {
+      database.query(
+        "SELECT * FROM data WHERE unique_identifier = ? AND user_username = ?",
+        [folderId, user.username],
+        (err, result) => {
+          if (err) console.log(err);
+          else {
+            database.query(
+              "UPDATE data SET size = ? WHERE unique_identifier = ? AND user_username = ?",
+              [
+                Number(result[0].size) + Number(file.size),
+                folderId,
+                user.username,
+              ],
+              (err) => {
+                if (err) console.log(err);
+              }
+            );
+          }
+        }
+      );
+    });
   }
 }
 
@@ -706,6 +733,7 @@ app.post("/api/upload", upload.array("file"), (req, res) => {
 
             combineChunks(filesArray[i].chunks, filesArray[i].uniqueName, user)
               .then(() => {
+                updateFolderSize(filesArray[i], user);
                 //delete the added file
                 storeData(filesArray[i], "file");
                 filesArray.splice(i, 1);
@@ -1153,7 +1181,7 @@ app.post("/api/fetch-data", (req, res) => {
           let usedMemory = 0;
 
           result.forEach((data) => {
-            usedMemory += Number(data.size);
+            if (data.type === "file") usedMemory += Number(data.size);
             data.size = (Number(data.size) / Math.pow(1024, 2)).toFixed(2);
             const fileLastAccessed = data.last_accessed;
             data.last_accessed = getFormatedDate(data.last_accessed);
