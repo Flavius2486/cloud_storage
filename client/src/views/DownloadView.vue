@@ -26,8 +26,9 @@ export default {
           .then((response) => {
             if (response.data.dataName) {
               const blob = new Blob([file.data], {
-                type: "application/zip",
+                type: file.data.type,
               });
+              console.log(file.data.type);
 
               const link = document.createElement("a");
               link.href = window.URL.createObjectURL(blob);

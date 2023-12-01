@@ -606,7 +606,7 @@ export default {
             this.showMessageBox("File/folder not found!");
           } else {
             const blob = new Blob([response.data], {
-              type: "application/zip",
+              type: response.data.type,
             });
 
             const link = document.createElement("a");
