@@ -955,7 +955,6 @@ app.post("/api/tmp-link-download", (req, res) => {
   const { link } = req.body;
   validateTemporaryLink(link)
     .then((data) => {
-      res.setHeader("Content-Type", "application/json");
       const user = { username: data.user_username };
       if (data.type === "file") {
         const file = path.resolve(
