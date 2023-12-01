@@ -27,15 +27,22 @@ export default {
   methods: {
     rename() {
       const newNameInput = document.querySelector(".data-new-name-input");
-      if (newNameInput.value.length === 0) {
+      if (newNameInput.value.length === 0 || newNameInput.value.length > 150) {
         newNameInput.style.borderColor = "red";
       } else {
         newNameInput.style.borderColor = "#CDCDD6";
+        let newName = newNameInput.value;
+        if (
+          this.data.type === "file" &&
+          this.data.unique_identifier.match(/\.([^.]+)$/)
+        ) {
+          newName += "." + this.data.unique_identifier.match(/\.([^.]+)$/)[1];
+        }
         axios
           .post(
             `${import.meta.env.VITE_API_URL}/rename-data`,
             {
-              newName: newNameInput.value,
+              newName: newName,
               data: this.data,
             },
             { withCredentials: true }

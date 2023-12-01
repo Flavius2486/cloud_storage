@@ -75,6 +75,10 @@ export default {
   methods: {
     togleInfoModal() {
       this.showInfoModal = !this.showInfoModal;
+      const dropdowns = document.querySelectorAll(".dropdown");
+      dropdowns.forEach((dropdown) => {
+        dropdown.classList.add("hidden");
+      });
     },
     hideInfoModal() {
       this.showInfoModal = false;
@@ -91,7 +95,11 @@ export default {
     },
     logout() {
       axios
-        .post(`${import.meta.env.VITE_API_URL}/logout`, {}, { withCredentials: true })
+        .post(
+          `${import.meta.env.VITE_API_URL}/logout`,
+          {},
+          { withCredentials: true }
+        )
         .then(() => {
           this.$router.go();
         })
