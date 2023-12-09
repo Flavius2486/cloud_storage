@@ -11,6 +11,7 @@ import path from "path";
 import archiver from "archiver";
 import serveStatic from "serve-static";
 import checkDiskSpace from "check-disk-space";
+import cron from "node-cron";
 import { v4 as uuidv4 } from "uuid";
 
 import database from "./database/connection.js";
@@ -33,6 +34,152 @@ app.use(cookieParser());
 app.use(bodyParser.json({ limit: Infinity }));
 app.use(express.json());
 app.use(express.urlencoded({ limit: Infinity, extended: true }));
+
+app.use((req, res, next) => {
+  res.on("finish", async () => {
+    getUser(req.cookies)
+      .then((user) => {
+        const currentDate = new Date();
+        const filePath = "./user_data.json";
+
+        let userData = JSON.parse(fs.readFileSync(filePath, "utf8"));
+        const userIndex = userData.findIndex(
+          (userObj) => userObj.id === user.id
+        );
+
+        if (userIndex !== -1) {
+          userData[userIndex].last_request_date = currentDate.getTime();
+        } else {
+          userData.push({
+            id: user.id,
+            last_request_date: currentDate.getTime(),
+          });
+        }
+        fs.writeFileSync(filePath, JSON.stringify(userData, null, 2));
+      })
+      .catch(() => {});
+  });
+  next();
+});
+
+function resetData(data, user) {
+  for (let i = 0; i < data.length; i++) {
+    if (data[i].user === user.id) {
+      data.splice(i, 1);
+    }
+  }
+  return data;
+}
+
+async function processDeletions(result, user) {
+  const currentTime = new Date();
+  for (const data of result) {
+    if (data.deletion_date.getTime() <= currentTime.getTime()) {
+      try {
+        await deleteData(user, data);
+      } catch (err) {
+        console.log(err);
+      }
+    }
+  }
+}
+
+function removeAllFilesFromFolder(folderPath) {
+  fs.readdir(folderPath, (err, files) => {
+    if (err) {
+      console.error("Error reading folder:", err);
+      return;
+    }
+
+    files.forEach((file) => {
+      const filePath = path.join(folderPath, file);
+
+      fs.unlink(filePath, (err) => {
+        if (err) {
+          console.error("Error deleting file:", filePath, err);
+        } else {
+          console.log("Deleted file:", filePath);
+        }
+      });
+    });
+  });
+}
+
+cron.schedule("*/10 * * * *", () => {
+  const currentDate = new Date();
+  let userData = JSON.parse(fs.readFileSync("./user_data.json", "utf8"));
+  userData
+    .forEach((user) => {
+      if (currentDate.getTime() - user.last_request_date > 10 * 60 * 1000) {
+        foldersArray = resetData(foldersArray, user);
+        filesArray = resetData(filesArray, user);
+        uploadedFoldersArray = resetData(uploadedFoldersArray, user);
+        prevRelativePath = resetData(prevRelativePath, user);
+        numberOfReceivedFiles = resetData(numberOfReceivedFiles, user);
+
+        removeAllFilesFromFolder(`./uploads/${user.id}/chunks`);
+        removeAllFilesFromFolder(`./uploads/${user.id}/tmp_folder`);
+
+        database.query(
+          "SELECT * FROM data WHERE user_id = ? AND deletion_date IS NOT NULL",
+          [user.id],
+          (err, result) => {
+            if (err) console.log(err);
+            processDeletions(result, user)
+              .then(() => {})
+              .catch((err) => {
+                console.error(err);
+              });
+          }
+        );
+      }
+    })
+    .catch(() => {});
+  database.query("SELECT * FROM tokens", (err, result) => {
+    if (err) console.log(err);
+    else {
+      const currentDate = new Date();
+      result.forEach((token) => {
+        if (
+          currentDate.getTime() - token.access_token_refresh_date.getTime() >
+          32 * 60 * 1000
+        ) {
+          database.query(
+            "DELETE FROM tokens WHERE refresh_token = ?",
+            [token.refresh_token],
+            (err) => {
+              if (err) {
+                console.log(err);
+              }
+            }
+          );
+        }
+      });
+    }
+  });
+  database.query("SELECT * FROM temporary_links", (err, result) => {
+    if (err) console.log(err);
+    else {
+      const currentDate = new Date();
+      result.forEach((link) => {
+        if (
+          currentDate.getTime() - link.creation_date.getTime() >
+          60 * 60 * 1000
+        ) {
+          database.query(
+            "DELETE FROM temporary_links WHERE link = ?",
+            [link.link],
+            (err) => {
+              if (err) {
+                console.log(err);
+              }
+            }
+          );
+        }
+      });
+    }
+  });
+});
 
 /*---------------------------------------------------------*\
                  General functions
@@ -85,29 +232,6 @@ function getUser(cookies) {
   });
 }
 
-function generateUniqueId() {
-  const characters =
-    "1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUWXYZ";
-  const filenameLength = 8;
-
-  // Generate a random filename
-  let randomFilename = "";
-  for (let i = 0; i < filenameLength; i++) {
-    const randomIndex = Math.floor(Math.random() * characters.length);
-    randomFilename += characters.charAt(randomIndex);
-  }
-
-  const currentDate = new Date()
-    .toISOString()
-    .replace(/[-:.]/g, "")
-    .replace("T", "")
-    .slice(0, 14);
-
-  const uniqueFilename = randomFilename + "_" + currentDate;
-
-  return uniqueFilename;
-}
-
 function getFormatedDate(date) {
   const day = date.getDate() > 9 ? date.getDate() : "0" + date.getDate();
   const month =
@@ -125,9 +249,10 @@ function storeData(data, type) {
   const currentDate = new Date();
   if (data) {
     database.query(
-      "INSERT INTO data (name, unique_identifier, frontend_path, unique_path, creation_date, last_accessed, size, type, starred, user_username) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+      "INSERT INTO data (name,original_name, unique_identifier, frontend_path, unique_path, creation_date, last_accessed, size, type, starred, user_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
       [
         data.name,
+        data.originalName,
         data.uniqueName,
         data.path, // Remove square brackets
         data.uniquePath, // Remove square brackets
@@ -138,7 +263,7 @@ function storeData(data, type) {
         false,
         data.user,
       ],
-      (error, results) => {
+      (error) => {
         if (error) {
           // Handle the error here
           console.error("Error inserting data:", error);
@@ -150,8 +275,8 @@ function storeData(data, type) {
 
 function updateLastAccessedDate(uniqueIdentifier, user) {
   database.query(
-    "UPDATE data SET last_accessed = ? WHERE unique_identifier = ? AND user_username = ?",
-    [new Date(), uniqueIdentifier, user.username],
+    "UPDATE data SET last_accessed = ? WHERE unique_identifier = ? AND user_id = ?",
+    [new Date(), uniqueIdentifier, user.id],
     (err, result) => {
       if (err) console.log(err);
     }
@@ -188,44 +313,23 @@ app.post("/api/login", (req, res) => {
                 data[0].username === email_username)
             ) {
               const user = {
-                email: data[0].email,
-                username: data[0].username,
+                id: data[0].user_id,
               };
 
-              if (!fs.existsSync(`./uploads/${user.username}/`)) {
+              if (!fs.existsSync(`./uploads/${user.id}/`)) {
                 // If it doesn't exist, create the folders
-                fs.mkdirSync(`./uploads/${user.username}/`);
-                fs.mkdirSync(`./uploads/${user.username}/files`);
-                fs.mkdirSync(`./uploads/${user.username}/chunks`);
-                fs.mkdirSync(`./uploads/${user.username}/tmp_folder`);
-              } else {
-                deleteRemainingChunks(user)
-                  .then(() => {})
-                  .catch((err) => {
-                    console.log(err);
-                  });
-                fs.rm(
-                  `uploads/${user.username}/tmp_folder`,
-                  { recursive: true },
-                  (err) => {
-                    if (err) {
-                      console.error(
-                        `Error deleting folder: ${err.message}. User: ${user.username}`
-                      );
-                    }
-                    fs.mkdirSync(`./uploads/${user.username}/tmp_folder`);
-                  }
-                );
+                fs.mkdirSync(`./uploads/${user.id}/`);
+                fs.mkdirSync(`./uploads/${user.id}/files`);
+                fs.mkdirSync(`./uploads/${user.id}/chunks`);
+                fs.mkdirSync(`./uploads/${user.id}/tmp_folder`);
               }
-
-              resetMultipleData(user);
 
               const accessToken = generateAccessToken(user);
 
               const refreshToken = jwt.sign(user, process.env.REFRESH_TOKEN);
               database.query(
-                "INSERT INTO tokens (refresh_token, access_token_refresh_date) VALUES(?, ?)",
-                [refreshToken, new Date()],
+                "INSERT INTO tokens (refresh_token, access_token_refresh_date, user_id) VALUES(?, ?, ?)",
+                [refreshToken, new Date(), user.id],
                 (err) => {
                   if (err) console.log(err);
                 }
@@ -313,8 +417,7 @@ app.post("/api/refresh-token", (req, res) => {
     getUser(req.cookies)
       .then((user) => {
         const accessToken = generateAccessToken({
-          username: user.username,
-          email: user.email,
+          id: user.id,
         });
 
         updateLastDateAccessTokenRefreshed(accessTokenC);
@@ -348,56 +451,6 @@ function generateAccessToken(user) {
     expiresIn: "32m",
   });
 }
-/*---------------------------------------------------------*\
-         Remove old accesses tokens
-/*---------------------------------------------------------*/
-
-setInterval(() => {
-  database.query("SELECT * FROM tokens", (err, result) => {
-    if (err) console.log(err);
-    else {
-      const currentDate = new Date();
-      result.forEach((token) => {
-        if (
-          currentDate.getTime() - token.access_token_refresh_date.getTime() >
-          32 * 60 * 1000
-        ) {
-          database.query(
-            "DELETE FROM tokens WHERE refresh_token = ?",
-            [token.refresh_token],
-            (err) => {
-              if (err) {
-                console.log(err);
-              }
-            }
-          );
-        }
-      });
-    }
-  });
-  database.query("SELECT * FROM temporary_links", (err, result) => {
-    if (err) console.log(err);
-    else {
-      const currentDate = new Date();
-      result.forEach((link) => {
-        if (
-          currentDate.getTime() - link.creation_date.getTime() >
-          60 * 60 * 1000
-        ) {
-          database.query(
-            "DELETE FROM temporary_links WHERE link = ?",
-            [link.link],
-            (err) => {
-              if (err) {
-                console.log(err);
-              }
-            }
-          );
-        }
-      });
-    }
-  });
-}, 60 * 60 * 1000); // 1 hour in milliseconds
 
 /*---------------------------------------------------------*\
                   Uploading system
@@ -428,15 +481,23 @@ function createFolders(i, user) {
           folder.name === filesArray[i].path[j] && folder.nestedPosition === j
       );
       if (create) {
+        const currentDate =
+          "_" +
+          new Date()
+            .toISOString()
+            .replace(/[-:.]/g, "")
+            .replace("T", "")
+            .slice(0, 14);
         foldersArray.push({
           name: filesArray[i].path[j],
-          uniqueName: generateUniqueId(),
+          originalName: filesArray[i].path[j],
+          uniqueName: uuidv4() + currentDate,
           path: JSON.parse(JSON.stringify(filesArray[i].path)),
           uniquePath: [],
           public: false,
           nestedPosition: j,
           size: 0,
-          user: user.username,
+          user: user.id,
         });
         newRelativePath = true;
       }
@@ -520,18 +581,14 @@ function updateFolderSize(file, user) {
   if (file.uniquePath.length) {
     file.uniquePath.split("/").forEach((folderId) => {
       database.query(
-        "SELECT * FROM data WHERE unique_identifier = ? AND user_username = ?",
-        [folderId, user.username],
+        "SELECT * FROM data WHERE unique_identifier = ? AND user_id = ?",
+        [folderId, user.id],
         (err, result) => {
           if (err) console.log(err);
-          else {
+          else if (result.length) {
             database.query(
-              "UPDATE data SET size = ? WHERE unique_identifier = ? AND user_username = ?",
-              [
-                Number(result[0].size) + Number(file.size),
-                folderId,
-                user.username,
-              ],
+              "UPDATE data SET size = ? WHERE unique_identifier = ? AND user_id = ?",
+              [Number(result[0].size) + Number(file.size), folderId, user.id],
               (err) => {
                 if (err) console.log(err);
               }
@@ -555,8 +612,8 @@ function uploadFolders(user) {
     }
     if (upload) {
       database.query(
-        "UPDATE data SET size = ? WHERE user_username = ? AND unique_identifier = ?",
-        [foldersArray[m].size, user.username, foldersArray[m].uniqueName],
+        "UPDATE data SET size = ? WHERE user_id = ? AND unique_identifier = ?",
+        [foldersArray[m].size, user.id, foldersArray[m].uniqueName],
         () => {
           uploadedFoldersArray.push(
             JSON.parse(JSON.stringify(foldersArray[m]))
@@ -575,7 +632,7 @@ function uploadFolders(user) {
 
 async function combineChunks(chunkFilePaths, fileId, user) {
   let combinedStream = fs.createWriteStream(
-    path.join(`./uploads/${user.username}/files`, fileId),
+    path.join(`./uploads/${user.id}/files`, fileId),
     {
       flags: "a",
     }
@@ -583,7 +640,7 @@ async function combineChunks(chunkFilePaths, fileId, user) {
 
   for (let a = 0; a < chunkFilePaths.length; a++) {
     const chunkStream = fs.createReadStream(
-      path.join(`./uploads/${user.username}/chunks`, chunkFilePaths[a])
+      path.join(`./uploads/${user.id}/chunks`, chunkFilePaths[a])
     );
 
     await new Promise((resolve, reject) => {
@@ -591,7 +648,7 @@ async function combineChunks(chunkFilePaths, fileId, user) {
 
       chunkStream.on("end", () => {
         fs.unlinkSync(
-          path.join(`./uploads/${user.username}/chunks`, chunkFilePaths[a])
+          path.join(`./uploads/${user.id}/chunks`, chunkFilePaths[a])
         ); // Delete the processed chunk file
         resolve();
       });
@@ -610,7 +667,7 @@ const storage = multer.diskStorage({
   destination: (req, file, cb) => {
     getUser(req.cookies)
       .then((user) => {
-        cb(null, `./uploads/${user.username}/chunks/`);
+        cb(null, `./uploads/${user.id}/chunks/`);
       })
       .catch(() => {
         cb(null, null);
@@ -631,7 +688,7 @@ const storage = multer.diskStorage({
           filesArray.forEach((fileData) => {
             if (
               fileData.uniqueIdentifier === req.body.resumableIdentifier &&
-              fileData.user === user.username &&
+              fileData.user === user.id &&
               user !== null
             ) {
               //if it found a match add the resumable chunk in the chunks array on th chunk number position - 1
@@ -651,6 +708,7 @@ const storage = multer.diskStorage({
           } else fileRelativePath = [];
           filesArray.push({
             name: req.body.resumableFilename,
+            originalName: req.body.resumableFilename,
             uniqueName: null,
             uniqueIdentifier: req.body.resumableIdentifier,
             totalChunks: Number(req.body.resumableTotalChunks),
@@ -660,7 +718,7 @@ const storage = multer.diskStorage({
             public: false,
             status: 0,
             chunks: [],
-            user: user.username,
+            user: user.id,
           });
           //add the cunk
           filesArray[filesArray.length - 1].chunks[
@@ -700,13 +758,21 @@ app.post("/api/upload", upload.array("file"), (req, res) => {
             filesArray[i].status = 1;
 
             let fileId;
+            const currentDate =
+              "_" +
+              new Date()
+                .toISOString()
+                .replace(/[-:.]/g, "")
+                .replace("T", "")
+                .slice(0, 14);
             if (filesArray[i].name.match(/\.([^.]+)$/)) {
               fileId =
-                generateUniqueId() +
+                uuidv4() +
+                currentDate +
                 "." +
                 filesArray[i].name.match(/\.([^.]+)$/)[1];
             } else {
-              fileId = generateUniqueId();
+              fileId = uuidv4() + currentDate;
             }
 
             if (filesArray[i].path.length > 0) {
@@ -749,7 +815,7 @@ app.post("/api/upload", upload.array("file"), (req, res) => {
                   if (
                     numberOfReceivedFiles[numberOfReceivedFilesIndex] &&
                     numberOfReceivedFiles[numberOfReceivedFilesIndex].user ===
-                      user.username
+                      user.id
                   ) {
                     numberOfReceivedFiles[numberOfReceivedFilesIndex]
                       .receivedFiles++;
@@ -759,7 +825,7 @@ app.post("/api/upload", upload.array("file"), (req, res) => {
                 //if the user is uploading his first file push a new object
                 if (firstUserFile) {
                   numberOfReceivedFiles.push({
-                    user: user.username,
+                    user: user.id,
                     receivedFiles: 1,
                     totalFiles: Number(req.headers.numberoffiles),
                   });
@@ -778,7 +844,7 @@ app.post("/api/upload", upload.array("file"), (req, res) => {
                       numberOfReceivedFiles[numberOfReceivedFilesIndex]
                         .totalFiles &&
                     numberOfReceivedFiles[numberOfReceivedFilesIndex].user ===
-                      user.username
+                      user.id
                   ) {
                     foldersArray = resetData(foldersArray, user);
                     filesArray = resetData(filesArray, user);
@@ -824,13 +890,13 @@ app.post("/api/upload", upload.array("file"), (req, res) => {
 async function moveFile(obj, user, data) {
   return new Promise((resolve, reject) => {
     if (obj.unique_path.split("/").includes(data.unique_identifier)) {
-      const targetPath = `./uploads/${user.username}/tmp_folder/${obj.frontend_path}/`;
+      const targetPath = `./uploads/${user.id}/tmp_folder/${obj.frontend_path}/`;
       if (!fs.existsSync(targetPath)) {
         fs.mkdirSync(targetPath);
       }
       if (obj.type === "file") {
         fs.copyFile(
-          `./uploads/${user.username}/files/${obj.unique_identifier}`,
+          `./uploads/${user.id}/files/${obj.unique_identifier}`,
           targetPath + obj.name,
           (err) => {
             if (err) {
@@ -880,69 +946,104 @@ app.post("/api/download", (req, res) => {
     .then((user) => {
       const { data } = req.body;
       updateLastAccessedDate(data.unique_identifier, user);
-      if (data.type === "file") {
-        const file = path.resolve(
-          `uploads/${user.username}/files/${data.unique_identifier}`
-        );
-        fs.access(file, fs.constants.F_OK, (err) => {
+      database.query(
+        "SELECT * FROM data WHERE user_id = ? AND unique_identifier = ?",
+        [user.id, data.unique_identifier],
+        (err, dataName) => {
           if (err) {
+            console.log(err);
             res.json({});
-          } else {
-            res.sendFile(file, (err) => {
-              if (err) console.log(err);
-            });
-          }
-        });
-      } else {
-        database.query(
-          "SELECT * FROM data WHERE user_username=?",
-          [user.username],
-          (err, result) => {
-            if (err) {
-              console.log(err);
-              res.json({});
+          } else if (dataName.length) {
+            if (data.type === "file") {
+              const file = path.resolve(
+                path.normalize(
+                  `uploads/${user.id}/files/${data.unique_identifier}`
+                )
+              );
+              fs.access(file, fs.constants.F_OK, (err) => {
+                if (err) {
+                  res.json({});
+                } else {
+                  res.sendFile(file, (err) => {
+                    if (err) console.log(err);
+                  });
+                }
+              });
             } else {
-              moveAllFiles(result, user, data)
-                .then(() => {
-                  zipDirectory(
-                    `uploads/${user.username}/tmp_folder/${data.name}`,
-                    `uploads/${user.username}/tmp_folder/${data.name}.zip`
-                  )
-                    .then(() => {
-                      fs.rm(
-                        `uploads/${user.username}/tmp_folder/${data.name}`,
-                        { recursive: true },
-                        (err) => {
-                          if (err) {
-                            console.error(
-                              `Error deleting folder: ${err.message}. User: ${user.username}`
+              database.query(
+                "SELECT * FROM data WHERE user_id=?",
+                [user.id],
+                (err, result) => {
+                  if (err) {
+                    console.log(err);
+                    res.json({});
+                  } else {
+                    moveAllFiles(result, user, data)
+                      .then(() => {
+                        zipDirectory(
+                          `uploads/${user.id}/tmp_folder/${data.name}`,
+                          `uploads/${user.id}/tmp_folder/${data.name}.zip`
+                        )
+                          .then(() => {
+                            fs.rm(
+                              `uploads/${user.id}/tmp_folder/${data.name}`,
+                              { recursive: true },
+                              (err) => {
+                                if (err) {
+                                  console.error(
+                                    `Error deleting folder: ${err.message}. User: ${user.id}`
+                                  );
+                                }
+                              }
                             );
-                          }
-                        }
-                      );
-                      res.sendFile(
-                        path.resolve(
-                          `uploads/${user.username}/tmp_folder/${data.name}.zip`
-                        ),
-                        (err) => {
-                          if (err) console.log(err);
-                        }
-                      );
-                    })
-                    .catch((err) => console.error(err));
-                })
-                .catch((error) => {
-                  console.error(`Error moving files: ${error}`);
-                });
+                            res.sendFile(
+                              path.resolve(
+                                `uploads/${user.id}/tmp_folder/${data.name}.zip`
+                              ),
+                              (err) => {
+                                if (err) console.log(err);
+                              }
+                            );
+                          })
+                          .catch((err) => console.error(err));
+                      })
+                      .catch((error) => {
+                        console.error(`Error moving files: ${error}`);
+                      });
+                  }
+                }
+              );
             }
           }
-        );
-      }
+        }
+      );
     })
     .catch(() => {
       res.send({ message: "Unauthorized user!" });
     });
 });
+
+app.post("/api/delete-downloaded-folder", (req, res) => {
+  getUser(req.cookies).then((user) => {
+    const { folderName } = req.body;
+    fs.rm(
+      `uploads/${user.id}/tmp_folder/${folderName}.zip`,
+      { recursive: true },
+      (err) => {
+        if (err) {
+          console.error(
+            `Error deleting folder: ${err.message}. User: ${user.id}`
+          );
+        }
+        res.json({});
+      }
+    );
+  });
+});
+
+/*---------------------------------------------------------*\
+                  Temporary link
+/*---------------------------------------------------------*/
 
 async function validateTemporaryLink(link) {
   return await new Promise((resolve, reject) => {
@@ -958,8 +1059,8 @@ async function validateTemporaryLink(link) {
             60 * 60 * 1000
         ) {
           database.query(
-            "SELECT * FROM data WHERE unique_identifier = ?",
-            [linkData[0].unique_identifier],
+            "SELECT * FROM data WHERE data_id = ?",
+            [linkData[0].data_id],
             (err, data) => {
               if (data) {
                 resolve(data[0]);
@@ -983,10 +1084,10 @@ app.post("/api/tmp-link-download", (req, res) => {
   const { link } = req.body;
   validateTemporaryLink(link)
     .then((data) => {
-      const user = { username: data.user_username };
+      const user = { id: data.user_id };
       if (data.type === "file") {
         const file = path.resolve(
-          `uploads/${user.username}/files/${data.unique_identifier}`
+          `uploads/${user.id}/files/${data.unique_identifier}`
         );
         fs.access(file, fs.constants.F_OK, (err) => {
           if (err) {
@@ -999,8 +1100,8 @@ app.post("/api/tmp-link-download", (req, res) => {
         });
       } else {
         database.query(
-          "SELECT * FROM data WHERE user_username=?",
-          [user.username],
+          "SELECT * FROM data WHERE user_id=?",
+          [user.id],
           (err, result) => {
             if (err) {
               console.log(err);
@@ -1009,24 +1110,24 @@ app.post("/api/tmp-link-download", (req, res) => {
               moveAllFiles(result, user, data)
                 .then(() => {
                   zipDirectory(
-                    `uploads/${user.username}/tmp_folder/${data.name}`,
-                    `uploads/${user.username}/tmp_folder/${data.name}.zip`
+                    `uploads/${user.id}/tmp_folder/${data.name}`,
+                    `uploads/${user.id}/tmp_folder/${data.name}.zip`
                   )
                     .then(() => {
                       fs.rm(
-                        `uploads/${user.username}/tmp_folder/${data.name}`,
+                        `uploads/${user.id}/tmp_folder/${data.name}`,
                         { recursive: true },
                         (err) => {
                           if (err) {
                             console.log(
-                              `Error deleting folder: ${err.message}. User: ${user.username}`
+                              `Error deleting folder: ${err.message}. User: ${user.id}`
                             );
                           }
                         }
                       );
                       res.sendFile(
                         path.resolve(
-                          `uploads/${user.username}/tmp_folder/${data.name}.zip`
+                          `uploads/${user.id}/tmp_folder/${data.name}.zip`
                         ),
                         (err) => {
                           if (err) console.log(err);
@@ -1052,11 +1153,12 @@ app.post("/api/tmp-link-download", (req, res) => {
 
 app.post("/api/get-download-link", (req, res) => {
   getUser(req.cookies)
-    .then(() => {
+    .then((user) => {
       const { data } = req.body;
       database.query(
-        "SELECT * FROM temporary_links WHERE unique_identifier = ?",
+        "SELECT * FROM temporary_links WHERE unique_identifier = ? AND user_id = ?",
         [data.unique_identifier],
+        user.id,
         (err, result) => {
           if (err) {
             console.log(err);
@@ -1078,8 +1180,8 @@ app.post("/api/generate-download-link", (req, res) => {
     const { data } = req.body;
     const link = uuidv4();
     database.query(
-      "INSERT INTO temporary_links (link, unique_identifier, creation_date, user) VALUES (?,?,?,?)",
-      [link, data.unique_identifier, new Date(), user.username],
+      "INSERT INTO temporary_links (link, creation_date, data_id) VALUES (?,?,?)",
+      [link, new Date(), data.data_id],
       (err) => {
         if (err) {
           console.log(err);
@@ -1096,8 +1198,8 @@ app.post("/api/delete-download-link", (req, res) => {
   getUser(req.cookies).then((user) => {
     const { data } = req.body;
     database.query(
-      "DELETE FROM temporary_links WHERE unique_identifier = ?",
-      [data.unique_identifier],
+      "DELETE FROM temporary_links WHERE data_id = ?",
+      [data.data_id, user.id],
       (err) => {
         if (err) {
           console.log(err);
@@ -1116,14 +1218,22 @@ app.post("/api/create-folder", (req, res) => {
   getUser(req.cookies)
     .then((user) => {
       const { name, isPublic, frontendPath, uniquePath } = req.body;
+      const currentDate =
+        "_" +
+        new Date()
+          .toISOString()
+          .replace(/[-:.]/g, "")
+          .replace("T", "")
+          .slice(0, 14);
       const data = {
         name: name,
-        uniqueName: generateUniqueId(),
+        originalName: name,
+        uniqueName: uuidv4() + currentDate,
         path: frontendPath,
         uniquePath: uniquePath,
         size: 0,
         public: isPublic,
-        user: user.username,
+        user: user.id,
       };
       storeData(data, "folder");
       res.json({ message: "Folder created successfully" });
@@ -1137,41 +1247,13 @@ app.post("/api/create-folder", (req, res) => {
                   Get data and reset data
 /*---------------------------------------------------------*/
 
-function resetData(data, user) {
-  for (let i = 0; i < data.length; i++) {
-    if (data[i].user === user.username) {
-      data.splice(i, 1);
-    }
-  }
-  return data;
-}
-
-function resetMultipleData(user) {
-  foldersArray = resetData(foldersArray, user);
-  filesArray = resetData(filesArray, user);
-  uploadedFoldersArray = resetData(uploadedFoldersArray, user);
-  prevRelativePath = resetData(prevRelativePath, user);
-  numberOfReceivedFiles = resetData(numberOfReceivedFiles, user);
-}
-
-app.post("/api/reset-data", (req, res) => {
-  getUser(req.cookies)
-    .then((user) => {
-      resetMultipleData(user);
-      res.json({ message: "The data has been reseted" });
-    })
-    .catch(() => {
-      res.json({ message: "Unauthorized user" });
-    });
-});
-
 app.post("/api/fetch-data", (req, res) => {
   getUser(req.cookies)
     .then((user) => {
       const { dataCategory } = req.body;
       database.query(
-        "SELECT * FROM data WHERE user_username=?",
-        [user.username],
+        "SELECT * FROM data WHERE user_id=?",
+        [user.id],
         (err, result) => {
           if (err) console.log(err);
           const currentTime = new Date();
@@ -1182,7 +1264,7 @@ app.post("/api/fetch-data", (req, res) => {
 
           result.forEach((data) => {
             if (data.type === "file") usedMemory += Number(data.size);
-            data.size = (Number(data.size) / Math.pow(1024, 2)).toFixed(2);
+            // data.size = (Number(data.size) / Math.pow(1024, 2)).toFixed(2);
             const fileLastAccessed = data.last_accessed;
             data.last_accessed = getFormatedDate(data.last_accessed);
             data.creation_date = getFormatedDate(data.creation_date);
@@ -1206,7 +1288,7 @@ app.post("/api/fetch-data", (req, res) => {
                 const folder = {
                   unique_identifier: data.unique_identifier,
                   size: data.size,
-                  frontend_path: "/" + frontendPath + data.name + "/",
+                  frontend_path: frontendPath + data.name,
                   unique_path: uniquePath + data.unique_identifier,
                 };
                 dataArray.push(folder);
@@ -1219,21 +1301,17 @@ app.post("/api/fetch-data", (req, res) => {
             dataArray.unshift({
               frontend_path: "/",
               unique_path: "",
+              size: "0",
             });
           } else {
             dataArray = filterData(dataArray);
           }
           checkDiskSpace("D:/").then((diskSpace) => {
-            const freeMemory = (
-              (diskSpace.free + usedMemory) /
-              Math.pow(1024, 3)
-            ).toFixed(2);
-            usedMemory = usedMemory / Math.pow(1024, 3);
-            usedMemory = usedMemory.toFixed(2);
+            const totalMemory = diskSpace.free + usedMemory;
             res.json({
               dataArray: dataArray,
               dataFound: true,
-              freeMemory: freeMemory,
+              totalMemory: totalMemory,
               usedMemory: usedMemory,
             });
           });
@@ -1275,8 +1353,8 @@ app.post("/api/folder-data", (req, res) => {
       const { folderIdentifier, page } = req.body;
       updateLastAccessedDate(folderIdentifier, user);
       database.query(
-        "SELECT * FROM data WHERE user_username=?",
-        [user.username],
+        "SELECT * FROM data WHERE user_id=?",
+        [user.id],
         (err, result) => {
           if (err) console.log(err);
           let folderData;
@@ -1306,7 +1384,7 @@ function getDataFromFolder(data, folderIdentifier, page) {
     let uniquePath = item.unique_path.split("/");
     if (uniquePath[uniquePath.length - 1] === folderIdentifier) {
       const fileLastAccessed = item.last_accessed;
-      item.size = (Number(item.size) / Math.pow(1024, 2)).toFixed(2);
+      // item.size = (Number(item.size) / Math.pow(1024, 2)).toFixed(2);
       item.last_accessed = getFormatedDate(item.last_accessed);
       item.creation_date = getFormatedDate(item.creation_date);
       if (item.deletion_date !== null && page === "deleted") {
@@ -1342,8 +1420,8 @@ app.post("/api/rename-data", (req, res) => {
         });
       } else {
         database.query(
-          "UPDATE data SET name = ? WHERE user_username = ? AND unique_identifier = ?",
-          [newName, user.username, data.unique_identifier],
+          "UPDATE data SET name = ? WHERE user_id = ? AND unique_identifier = ?",
+          [newName, user.id, data.unique_identifier],
           (err) => {
             if (err) {
               res.json({
@@ -1369,89 +1447,178 @@ app.post("/api/rename-data", (req, res) => {
 
 /*----------------Set new path----------------*/
 
+async function updateMovedDataFolderSize(location, size, method, user) {
+  return await new Promise((resolve, reject) => {
+    if (location.frontend_path) {
+      location.unique_path.split("/").forEach((folder, index) => {
+        database.query(
+          "SELECT * FROM data WHERE user_id = ? AND unique_identifier = ?",
+          [user.id, folder],
+          (err, folderArr) => {
+            if (err) reject(err);
+            let newSize =
+              method === "+"
+                ? Number(folderArr.length ? folderArr[0].size : 0) + size //for updating the target folder size
+                : Number(folderArr.length ? folderArr[0].size : 0) - size;
+            database.query(
+              "UPDATE data SET size = ? WHERE user_id = ? AND unique_identifier = ?",
+              [newSize, user.id, folder],
+              (err) => {
+                if (err) reject(err);
+                if (index === location.unique_path.split("/").length - 1)
+                  resolve();
+              }
+            );
+          }
+        );
+      });
+    }
+    resolve();
+  });
+}
+
 app.post("/api/set-new-path", (req, res) => {
   getUser(req.cookies)
     .then((user) => {
-      const { targetFolder, dataToMove } = req.body;
+      let { targetFolder, dataToMove } = req.body;
       updateLastAccessedDate(dataToMove.unique_identifier, user);
       //select all data
-      database.query(
-        "SELECT * FROM data WHERE user_username=?",
-        [user.username],
-        (err, result) => {
-          if (err) console.log(err);
-          result.forEach((data, index) => {
-            //make an array with the folders from the path
-            let dataUniquePathArray = data.unique_path.split("/");
-            let dataFrontendPathArray = data.frontend_path.split("/");
-            //go trough the file/folder unique path
-            dataUniquePathArray.forEach((dataIdentifier, index) => {
-              //if a folder from the unique path matches the name of the file/folder remove all the elements from 0 to the index of the folder that matches the name
-              if (dataIdentifier === dataToMove.unique_identifier) {
-                dataUniquePathArray.splice(0, index);
-                dataFrontendPathArray.splice(0, index);
-                //put the path back together
-                dataFrontendPathArray = dataFrontendPathArray.join("/");
-                dataUniquePathArray = dataUniquePathArray.join("/");
+      if (targetFolder.unique_path !== dataToMove.unique_path) {
+        database.query(
+          "SELECT * FROM data WHERE user_id=?",
+          [user.id],
+          (err, result) => {
+            if (err) console.log(err);
+            let movedDataSize = 0;
+            let rootLocation = true;
+            result.forEach((data, index) => {
+              //make an array with the folders from the path
+              let dataUniquePathArray = data.unique_path.split("/");
+              let dataFrontendPathArray = data.frontend_path.split("/");
+              //go trough the file/folder unique path
+              dataUniquePathArray.forEach((dataIdentifier, index) => {
+                //if a folder from the unique path matches the name of the file/folder remove all the elements from 0 to the index of the folder that matches the name
+                if (dataIdentifier === dataToMove.unique_identifier) {
+                  dataUniquePathArray.splice(0, index);
+                  dataFrontendPathArray.splice(0, index);
+                  //put the path back together
+                  dataFrontendPathArray = dataFrontendPathArray.join("/");
+                  dataUniquePathArray = dataUniquePathArray.join("/");
+                  database.query(
+                    "UPDATE data SET frontend_path = ?, unique_path = ? WHERE user_id = ? AND unique_identifier = ?",
+                    [
+                      //when inserting put the new path at the begining and then connect it with the modify one to set all the files an folders to the new path
+                      [targetFolder.frontend_path, dataFrontendPathArray].join(
+                        "/"
+                      ),
+                      [targetFolder.unique_path, dataUniquePathArray].join("/"),
+                      user.id,
+                      data.unique_identifier,
+                    ],
+                    (err) => {
+                      if (err) console.log(err);
+                    }
+                  );
+                  movedDataSize += Number(data.size);
+                  rootLocation = false;
+                }
+              });
+              if (result.length === index + 1) {
+                //move the folder/file to the chosen path
                 database.query(
-                  "UPDATE data set frontend_path = ?, unique_path = ? WHERE user_username = ? AND unique_identifier = ?",
+                  "UPDATE data SET frontend_path = ?, unique_path = ? WHERE user_id = ? AND unique_identifier = ?",
                   [
-                    //when inserting put the new path at the begining and then cooect it with the modify one to set all the files an folders to the new path
-                    [targetFolder.frontend_path, dataFrontendPathArray].join(
-                      "/"
-                    ),
-                    [targetFolder.unique_path, dataUniquePathArray].join("/"),
-                    user.username,
-                    data.unique_identifier,
+                    targetFolder.frontend_path,
+                    targetFolder.unique_path,
+                    user.id,
+                    dataToMove.unique_identifier,
                   ],
                   (err) => {
-                    if (err) console.log(err);
+                    if (err) {
+                      console.log(err);
+                    }
+                    //uptdate the folder size
+                    let updatePath = false;
+
+                    let targetFolderUniquePath =
+                      targetFolder.unique_path.split("/");
+                    let dataToMoveUniquePath =
+                      dataToMove.unique_path.split("/");
+
+                    let pathLength = Math.min(
+                      targetFolderUniquePath.length,
+                      dataToMoveUniquePath.length
+                    );
+
+                    for (let i = 0; i < pathLength; i++) {
+                      if (
+                        dataToMoveUniquePath[i] === targetFolderUniquePath[i]
+                      ) {
+                        targetFolderUniquePath.splice(i, 1);
+                        dataToMoveUniquePath.splice(i, 1);
+                        pathLength--;
+                        i--; // Decrement i to recheck the current index after deleting the element
+                        updatePath = true;
+                      }
+                    }
+
+                    if (updatePath) {
+                      dataToMove.unique_path = dataToMoveUniquePath.join("/");
+                      targetFolder.unique_path =
+                        targetFolderUniquePath.join("/");
+                    }
+
+                    if (rootLocation) {
+                      movedDataSize = Number(dataToMove.size);
+                    }
+
+                    updateMovedDataFolderSize(
+                      dataToMove,
+                      movedDataSize,
+                      "-",
+                      user
+                    )
+                      .then(() => {
+                        updateMovedDataFolderSize(
+                          targetFolder,
+                          movedDataSize,
+                          "+",
+                          user
+                        )
+                          .then(() => {
+                            res.json({
+                              message: `${capitalizeFirstLetter(
+                                dataToMove.type
+                              )} moved succesfully!`,
+                            });
+                          })
+                          .catch((err) => {
+                            console.log(err);
+                            res.json({
+                              message: "Error updating folder size.",
+                            });
+                          });
+                      })
+                      .catch((err) => {
+                        console.log(err);
+                        res.json({
+                          message: "Error updating folder size.",
+                        });
+                      });
                   }
                 );
               }
             });
-            if (result.length === index + 1) {
-              //move the folder/file to the chosen path
-              database.query(
-                "UPDATE data SET frontend_path = ?, unique_path = ? WHERE user_username = ? AND unique_identifier = ?",
-                [
-                  targetFolder.frontend_path,
-                  targetFolder.unique_path,
-                  user.username,
-                  dataToMove.unique_identifier,
-                ],
-                (err) => {
-                  if (err) {
-                    console.log(err);
-                  }
-                  //uptdate the folder size
-                  database.query(
-                    "UPDATE data SET size = ? WHERE user_username = ? AND unique_identifier = ?",
-                    [
-                      Number(targetFolder.size) + Number(dataToMove.size)
-                        ? Number(targetFolder.size) + Number(dataToMove.size)
-                        : 0,
-                      user.username,
-                      targetFolder.unique_identifier,
-                    ],
-                    (err) => {
-                      if (err) console.log(err);
-                      res.json({
-                        message: `${capitalizeFirstLetter(
-                          dataToMove.type
-                        )} moved succesfully!`,
-                      });
-                    }
-                  );
-                }
-              );
-            }
-          });
-        }
-      );
+          }
+        );
+      } else {
+        res.json({
+          message: "Error moving data.",
+        });
+      }
     })
     .catch(() => {
-      res.status(401).json({ message: "Unauthorized user" });
+      res.json({ message: "Unauthorized user" });
     });
 });
 
@@ -1461,8 +1628,8 @@ app.post("/api/set-new-path", (req, res) => {
 async function updateDataStarredStatus(user, data, starred) {
   return new Promise((resolve, reject) => {
     database.query(
-      "UPDATE data SET starred = ? WHERE user_username = ? and unique_identifier = ?",
-      [starred, user.username, data.unique_identifier],
+      "UPDATE data SET starred = ? WHERE user_id = ? and unique_identifier = ?",
+      [starred, user.id, data.unique_identifier],
       (err) => {
         if (err) {
           reject();
@@ -1481,8 +1648,8 @@ app.post("/api/starred", (req, res) => {
       updateLastAccessedDate(data.unique_identifier, user);
       if (data.type === "folder") {
         database.query(
-          "SELECT * FROM data WHERE user_username = ?",
-          [user.username],
+          "SELECT * FROM data WHERE user_id = ?",
+          [user.id],
           (err, result) => {
             if (err) {
               console.log(err);
@@ -1534,15 +1701,22 @@ app.post("/api/starred", (req, res) => {
 function deleteData(user, data) {
   return new Promise((resolve, reject) => {
     database.query(
-      "DELETE FROM data WHERE user_username = ? AND unique_identifier = ?",
-      [user.username, data.unique_identifier],
+      "DELETE FROM temporary_links WHERE data_id = ?",
+      [data.data_id],
+      (err) => {
+        if (err) throw err;
+      }
+    );
+    database.query(
+      "DELETE FROM data WHERE user_id = ? AND unique_identifier = ?",
+      [user.id, data.unique_identifier],
       (err) => {
         if (err) {
           reject(err);
         } else {
           if (data.type === "file") {
             fs.unlink(
-              `./uploads/${user.username}/files/${data.unique_identifier}`,
+              `./uploads/${user.id}/files/${data.unique_identifier}`,
               (err) => {
                 if (err) {
                   reject(err);
@@ -1565,8 +1739,8 @@ async function setDeletionDate(user, data) {
     let deletionDate = new Date();
     deletionDate.setDate(deletionDate.getDate() + 7);
     database.query(
-      "UPDATE data SET deletion_date = ? WHERE user_username = ? AND unique_identifier = ?",
-      [deletionDate, user.username, data.unique_identifier],
+      "UPDATE data SET deletion_date = ? WHERE user_id = ? AND unique_identifier = ?",
+      [deletionDate, user.id, data.unique_identifier],
       (err) => {
         if (err) {
           reject();
@@ -1578,19 +1752,6 @@ async function setDeletionDate(user, data) {
   });
 }
 
-async function processDeletions(result, user) {
-  const currentTime = new Date();
-  for (const data of result) {
-    if (data.deletion_date.getTime() <= currentTime.getTime()) {
-      try {
-        await deleteData(user, data);
-      } catch (err) {
-        console.log(err);
-      }
-    }
-  }
-}
-
 app.post("/api/delete", (req, res) => {
   getUser(req.cookies)
     .then((user) => {
@@ -1598,8 +1759,8 @@ app.post("/api/delete", (req, res) => {
       //select the
       if (data.deletion_date === null) {
         database.query(
-          "SELECT * FROM data WHERE user_username = ? AND deletion_date IS NULL",
-          [user.username],
+          "SELECT * FROM data WHERE user_id = ? AND deletion_date IS NULL",
+          [user.id],
           (err, result) => {
             if (err) {
               console.log(err);
@@ -1638,8 +1799,8 @@ app.post("/api/delete", (req, res) => {
       } else {
         if (data.type === "folder") {
           database.query(
-            "SELECT * FROM data WHERE user_username = ? AND deletion_date IS NOT NULL",
-            [user.username],
+            "SELECT * FROM data WHERE user_id = ? AND deletion_date IS NOT NULL",
+            [user.id],
             (err, result) => {
               {
                 if (err) {
@@ -1653,9 +1814,7 @@ app.post("/api/delete", (req, res) => {
                         .includes(data.unique_identifier)
                     ) {
                       deleteData(user, resultData).catch((err) => {
-                        // return res.json({
-                        //   message: `Error deleting the ${data.type}!`,
-                        // });
+                        console.log(err);
                       });
                     }
                   });
@@ -1673,6 +1832,7 @@ app.post("/api/delete", (req, res) => {
             });
           })
           .catch((err) => {
+            console.log(err);
             return res.json({
               message: `Error deleting the ${data.type}!`,
             });
@@ -1684,43 +1844,17 @@ app.post("/api/delete", (req, res) => {
     });
 });
 
-/*----------------Auto delete date----------------*/
-
-app.post("/api/auto-delete-data", (req, res) => {
-  getUser(req.cookies)
-    .then((user) => {
-      database.query(
-        "SELECT * FROM data WHERE user_username = ? AND deletion_date IS NOT NULL",
-        [user.username],
-        (err, result) => {
-          if (err) console.log(err);
-          processDeletions(result, user)
-            .then(() => {
-              res.json({ message: "Data deleted successfully" });
-            })
-            .catch((err) => {
-              console.error(err);
-              res.json({ message: "An error occurred while deleting data" });
-            });
-        }
-      );
-    })
-    .catch(() => {
-      res.json({ message: "Unauthorized user!" });
-    });
-});
-
 /*----------------Delete remaining chunks----------------*/
 
 async function deleteRemainingChunks(user) {
   return await new Promise((resolve, reject) => {
-    fs.readdir(`./uploads/${user.username}/chunks/`, (err, files) => {
+    fs.readdir(`./uploads/${user.id}/chunks/`, (err, files) => {
       if (err) {
         reject(err);
       } else {
         for (const file of files) {
           fs.unlink(
-            path.join(`./uploads/${user.username}/chunks/`, file),
+            path.join(`./uploads/${user.id}/chunks/`, file),
             (error) => {
               if (err) console.log(error);
             }
@@ -1754,8 +1888,8 @@ app.post("/api/delete-chunks", (req, res) => {
 async function recoverData(user, data) {
   return new Promise((resolve, reject) => {
     database.query(
-      "UPDATE data SET deletion_date = NULL WHERE user_username = ? AND unique_identifier = ?",
-      [user.username, data.unique_identifier],
+      "UPDATE data SET deletion_date = NULL WHERE user_id = ? AND unique_identifier = ?",
+      [user.id, data.unique_identifier],
       (err) => {
         if (err) {
           reject();
@@ -1772,8 +1906,8 @@ app.post("/api/recover", (req, res) => {
     .then((user) => {
       const { data } = req.body;
       database.query(
-        "SELECT * FROM data WHERE user_username = ? AND deletion_date IS NOT NULL",
-        [user.username],
+        "SELECT * FROM data WHERE user_id = ? AND deletion_date IS NOT NULL",
+        [user.id],
         (err, result) => {
           if (err) console.log(err);
           result.forEach((resultData) => {
@@ -1790,11 +1924,24 @@ app.post("/api/recover", (req, res) => {
           });
           recoverData(user, data)
             .then(() => {
-              res.json({
-                message: `${capitalizeFirstLetter(
-                  data.type
-                )} recoverd succesfully!`,
-              });
+              database.query(
+                "UPDATE data SET frontend_path = ?, unique_path = ? WHERE unique_identifier = ? AND user_id = ?",
+                ["", "", data.unique_identifier, user.id],
+                (err) => {
+                  if (err) {
+                    console.log(err);
+                    return res.json({
+                      message: `Error recovering the ${data.type}!`,
+                    });
+                  } else {
+                    res.json({
+                      message: `${capitalizeFirstLetter(
+                        data.type
+                      )} recoverd succesfully!`,
+                    });
+                  }
+                }
+              );
             })
             .catch(() => {
               console.log(err);
@@ -1817,8 +1964,8 @@ app.post("/api/update-last-access", (req, res) => {
     .then((user) => {
       const { folderIdentifier } = req.body;
       database.query(
-        "UPDATE data SET last_accessed = ? WHERE user_username = ? AND unique_identifier = ? ",
-        [new Date(), user.username, folderIdentifier],
+        "UPDATE data SET last_accessed = ? WHERE user_id = ? AND unique_identifier = ? ",
+        [new Date(), user.id, folderIdentifier],
         (err) => {
           if (err) {
             console.log(err);
@@ -1841,8 +1988,8 @@ app.post("/api/search", (req, res) => {
       const { query } = req.body;
       let dataArray = [];
       database.query(
-        "SELECT * FROM data WHERE user_username = ?",
-        [user.username],
+        "SELECT * FROM data WHERE user_id = ?",
+        [user.id],
         (err, result) => {
           if (err) {
             console.log(err);

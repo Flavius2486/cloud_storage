@@ -22,9 +22,7 @@
 <script>
 import sidebar from "@/components/sidebar/sidebar.vue";
 import navbar from "@/components/navbar.vue";
-// import fetchData from "@/utils/fetchData";
 import refreshToken from "@/utils/refreshToken.js";
-import authoDeleteData from "@/utils/autoDeleteData.js";
 
 export default {
   name: "App",
@@ -68,16 +66,15 @@ export default {
   },
   mounted() {
     refreshToken();
+    if (this.$store.state.isAuthenticated) {
+      window.setInterval(() => {
+        refreshToken();
+      }, 1800000);
+    }
   },
   created: function () {
     window.addEventListener("click", () => {
       this.hideDropdowns();
-    });
-    authoDeleteData();
-  },
-  unmounted: function () {
-    window.removeEventListener("click", () => {
-      this.hideDropdowns(), this.hideSidebar();
     });
   },
   watch: {

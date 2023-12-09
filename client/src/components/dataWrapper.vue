@@ -236,7 +236,9 @@
           </div>
         </th>
         <th>
-          <p class="file-size">{{ file.size }}MB</p>
+          <p class="file-size">
+            {{ (Number(file.size) / Math.pow(1024, 2)).toFixed(2) }}MB
+          </p>
         </th>
         <th>
           <p class="file-last-accesed">{{ file.last_accessed }}</p>
@@ -357,6 +359,7 @@ import GenerateDownloadLink from "@/components/modal/modalContent/generateDownlo
 import MoveData from "@/components/modal/modalContent/moveData.vue";
 import DataDetalies from "@/components/modal/modalContent/dataDetalies.vue";
 import MessageBox from "@/components/notifications/messageBox.vue";
+import deleteDownloadedFolder from "../utils/deleteDownloadedFolder";
 
 export default {
   components: {
@@ -602,9 +605,7 @@ export default {
           { responseType: "blob", withCredentials: true }
         )
         .then((response) => {
-          if (!response.data) {
-            this.showMessageBox("File/folder not found!");
-          } else {
+          if (response.data) {
             const blob = new Blob([response.data], {
               type: response.data.type,
             });
@@ -613,6 +614,11 @@ export default {
             link.href = window.URL.createObjectURL(blob);
             link.download = data.name;
             link.click();
+            if (data.type === "folder") {
+              deleteDownloadedFolder(data.name);
+            }
+          } else {
+            this.showMessageBox("File/folder not found!");
           }
         })
         .catch((err) => {

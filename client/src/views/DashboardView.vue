@@ -108,7 +108,6 @@ import CreatePrivateFolder from "@/components/modal/modalContent/createPrivateFo
 import MessageBox from "@/components/notifications/messageBox.vue";
 
 import fetchData from "@/utils/fetchData";
-import resetData from "@/utils/resetData";
 import axios from "axios";
 
 export default {
@@ -162,7 +161,6 @@ export default {
         this.filesGroup = [];
         this.lastFileAdedIndex = 0;
         this.uploadedFilesFromGroup = 0;
-        resetData();
       }
 
       if (this.filesStatus !== "error") {
@@ -257,15 +255,14 @@ export default {
         //calculate the file group size
         fileGroupSize += Number(files[i].size);
         if (
-          (fileGroupSize / Math.pow(1024, 3)).toFixed(0) +
-            Number(this.$store.state.usedMemory) >=
-          Number(this.$store.state.freeMemory)
+          fileGroupSize + Number(this.$store.state.usedMemory) >=
+          Number(this.$store.state.freeMemory) + 1024 * 1024 * 50
         ) {
           this.abortUploading();
           this.$refs.MessageBox.showMessage(
             "Disk memory is almost full. Aborting..."
           );
-          resetData();
+
           break;
         }
         ///add the file to the array

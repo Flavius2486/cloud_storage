@@ -2,6 +2,8 @@
 
 <script>
 import axios from "axios";
+import deleteDownloadedFolder from "../utils/deleteDownloadedFolder";
+
 export default {
   name: "tmp-download",
   data() {
@@ -28,12 +30,12 @@ export default {
               const blob = new Blob([file.data], {
                 type: file.data.type,
               });
-              console.log(file.data.type);
 
               const link = document.createElement("a");
               link.href = window.URL.createObjectURL(blob);
               link.download = response.data.dataName;
               link.click();
+              deleteDownloadedFolder(response.data.dataName);
             } else {
               this.$router.replace({
                 name: "login",

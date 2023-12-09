@@ -14,7 +14,7 @@ const fetchData = async (dataCategory) => {
     store.commit("setDataStatus", { state: true });
     store.commit("setMemoryStatus", {
       data: {
-        freeMemory: response.data.freeMemory,
+        totalMemory: response.data.totalMemory,
         usedMemory: response.data.usedMemory,
       },
     });

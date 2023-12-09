@@ -31,8 +31,8 @@
         <span></span>
       </div>
       <div class="storage-informations-text">
-        {{ $store.state.usedMemory }}GB out of {{ $store.state.freeMemory }}GB
-        used
+        {{ ($store.state.usedMemory / Math.pow(1023, 3)).toFixed(2) }}GB out of
+        {{ ($store.state.totalMemory / Math.pow(1023, 3)).toFixed(2) }}GB used
       </div>
     </div>
   </aside>
@@ -92,7 +92,7 @@ export default {
     progressBar() {
       const usedStorage =
         (Math.floor(this.$store.state.usedMemory) /
-          this.$store.state.freeMemory) *
+          this.$store.state.totalMemory) *
         100;
       document.querySelector(".progress-bar span").style.width =
         usedStorage + "%";

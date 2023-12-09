@@ -1,6 +1,7 @@
 <template>
   <div class="detalies-container">
     <p class="data-info"><b>Name:</b> {{ data.name }}</p>
+    <p class="data-info"><b>Original Name:</b> {{ data.original_name }}</p>
     <p class="data-info"><b>Location:</b> {{ data.frontend_path }}</p>
     <p class="data-info"><b>Size:</b> {{ data.size }} MB</p>
     <p class="data-info"><b>Starred:</b> {{ data.starred }}</p>

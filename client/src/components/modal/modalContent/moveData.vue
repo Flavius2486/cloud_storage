@@ -29,7 +29,7 @@ export default {
     return {
       availablePaths: [],
       availablePathsCopy: [],
-      selectedNewPath: { frontend_path: "", unique_path: "" },
+      selectedNewPath: { frontend_path: "", unique_path: "", size: "0" },
     };
   },
   methods: {
@@ -76,9 +76,12 @@ export default {
         .then((response) => {
           this.availablePaths = response.data.dataArray;
           this.availablePaths = this.availablePaths.filter((folder) => {
-            return !folder.unique_path
-              .split("/")
-              .includes(this.data.unique_identifier);
+            return (
+              !folder.unique_path
+                .split("/")
+                .includes(this.data.unique_identifier) &&
+              this.data.unique_path !== folder.unique_path
+            );
           });
         });
     },

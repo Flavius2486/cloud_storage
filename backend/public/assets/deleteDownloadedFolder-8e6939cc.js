@@ -1,0 +1,1 @@
+import{a as r}from"./index-051f8a8c.js";const a=async e=>{try{await r.post("http://localhost:3002/api/delete-downloaded-folder",{folderName:e},{withCredentials:!0})}catch(o){console.error("Error deleting remaining folder:",o)}};export{a as d};

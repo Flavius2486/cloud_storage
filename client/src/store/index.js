@@ -4,7 +4,7 @@ export default createStore({
   state: {
     isAuthenticated: false,
     dataReceived: false,
-    freeMemory: 0,
+    totalMemory: 0,
     usedMemory: 0,
   },
   getters: {},
@@ -13,7 +13,7 @@ export default createStore({
       state.isAuthenticated = data.auth;
     },
     setMemoryStatus(state, data) {
-      state.freeMemory = data.data.freeMemory;
+      state.totalMemory = data.data.totalMemory;
       state.usedMemory = data.data.usedMemory;
     },
     setDataStatus(state, data) {
