@@ -4,7 +4,7 @@ import cors from "cors";
 import bodyParser from "body-parser";
 import jwt from "jsonwebtoken";
 import cookieParser from "cookie-parser";
-import bcrypt from "bcrypt";
+import argon2 from "argon2";
 import multer from "multer";
 import fs from "fs";
 import path from "path";
@@ -305,55 +305,63 @@ app.post("/api/login", (req, res) => {
       (err, data) => {
         if (err) console.log(err);
         if (data.length) {
-          bcrypt.compare(password, data[0].password, (err, result) => {
-            if (err) console.log(err);
-            if (
-              result &&
-              (data[0].email === email_username ||
-                data[0].username === email_username)
-            ) {
-              const user = {
-                id: data[0].user_id,
-              };
+          argon2
+            .verify(data[0].password, password)
+            .then((result) => {
+              if (
+                result &&
+                (data[0].email === email_username ||
+                  data[0].username === email_username)
+              ) {
+                const user = {
+                  id: data[0].user_id,
+                };
 
-              if (!fs.existsSync(`./uploads/${user.id}/`)) {
-                // If it doesn't exist, create the folders
-                fs.mkdirSync(`./uploads/${user.id}/`);
-                fs.mkdirSync(`./uploads/${user.id}/files`);
-                fs.mkdirSync(`./uploads/${user.id}/chunks`);
-                fs.mkdirSync(`./uploads/${user.id}/tmp_folder`);
-              }
-
-              const accessToken = generateAccessToken(user);
-
-              const refreshToken = jwt.sign(user, process.env.REFRESH_TOKEN);
-              database.query(
-                "INSERT INTO tokens (refresh_token, access_token_refresh_date, user_id) VALUES(?, ?, ?)",
-                [refreshToken, new Date(), user.id],
-                (err) => {
-                  if (err) console.log(err);
+                if (!fs.existsSync(`./uploads/${user.id}/`)) {
+                  // If it doesn't exist, create the folders
+                  fs.mkdirSync(`./uploads/${user.id}/`);
+                  fs.mkdirSync(`./uploads/${user.id}/files`);
+                  fs.mkdirSync(`./uploads/${user.id}/chunks`);
+                  fs.mkdirSync(`./uploads/${user.id}/tmp_folder`);
                 }
-              );
 
-              res.cookie("accessToken", accessToken, {
-                expires: new Date(Date.now() + 1000 * 60 * 32),
-                secure: true,
-                httpOnly: true,
-              });
+                const accessToken = generateAccessToken(user);
 
-              res.cookie("refreshToken", refreshToken, {
-                httpOnly: true,
-                secure: true,
-              });
+                const refreshToken = jwt.sign(user, process.env.REFRESH_TOKEN);
+                database.query(
+                  "INSERT INTO tokens (refresh_token, access_token_refresh_date, user_id) VALUES(?, ?, ?)",
+                  [refreshToken, new Date(), user.id],
+                  (err) => {
+                    if (err) console.log(err);
+                  }
+                );
 
-              res.json({ accessToken: accessToken, auth: true });
-            } else {
+                res.cookie("accessToken", accessToken, {
+                  expires: new Date(Date.now() + 1000 * 60 * 32),
+                  secure: true,
+                  httpOnly: true,
+                });
+
+                res.cookie("refreshToken", refreshToken, {
+                  httpOnly: true,
+                  secure: true,
+                });
+
+                res.json({ accessToken: accessToken, auth: true });
+              } else {
+                res.json({
+                  message: "Incorrect email and/or password",
+                  auth: false,
+                });
+              }
+            })
+            .catch((err) => {
+              console.log(err);
               res.json({
                 message: "Incorrect email and/or password",
                 auth: false,
               });
-            }
-          });
+            });
         } else {
           res.json({
             message: "Incorrect email and/or password",
