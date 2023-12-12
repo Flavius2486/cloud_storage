@@ -1,0 +1,1 @@
+import{a as r}from"./index-ae865eb0.js";const d=async e=>{try{await r.post("https://cloud.fl4v1u5.net/api/delete-downloaded-folder",{folderName:e},{withCredentials:!0})}catch(o){console.error("Error deleting remaining folder:",o)}};export{d};

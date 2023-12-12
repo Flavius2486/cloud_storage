@@ -396,6 +396,7 @@ app.post("/api/logout", (req, res) => {
       }
     })
     .catch((error) => {
+      res.json({ logout: false });
       console.error(error);
     });
 });
@@ -744,151 +745,143 @@ const storage = multer.diskStorage({
 const upload = multer({ storage: storage });
 
 app.post("/api/upload", upload.array("file"), (req, res) => {
-  //verify if any of the files got all the chunks
-  (async () => {
-    for (let i = 0; i < filesArray.length; i++) {
-      //if the array chunks has the length of the resumabel total chunks add the file in the database and on th disk storage
-      let missingChunks = false;
-      for (let j = 0; j < filesArray[i].chunks.length; j++) {
-        if (filesArray[i].chunks[j] === undefined) {
-          missingChunks = true;
+  getUser(req.cookies)
+    .then((user) => {
+      //verify if any of the files got all the chunks
+      for (let i = 0; i < filesArray.length; i++) {
+        //if the array chunks has the length of the resumabel total chunks add the file in the database and on th disk storage
+        let missingChunks = false;
+        for (let j = 0; j < filesArray[i].chunks.length; j++) {
+          if (filesArray[i].chunks[j] === undefined) {
+            missingChunks = true;
+          }
+        }
+        if (
+          filesArray[i].totalChunks === filesArray[i].chunks.length &&
+          //means that the file was not already uploaded
+          filesArray[i].status === 0 &&
+          !missingChunks
+        ) {
+          //set the file status to uploading
+          filesArray[i].status = 1;
+
+          let fileId;
+          const currentDate =
+            "_" +
+            new Date()
+              .toISOString()
+              .replace(/[-:.]/g, "")
+              .replace("T", "")
+              .slice(0, 14);
+          if (filesArray[i].name.match(/\.([^.]+)$/)) {
+            fileId =
+              uuidv4() +
+              currentDate +
+              "." +
+              filesArray[i].name.match(/\.([^.]+)$/)[1];
+          } else {
+            fileId = uuidv4() + currentDate;
+          }
+
+          if (filesArray[i].path.length > 0) {
+            //get the folders from files relative path
+            createFolders(i, user);
+            //remove the last element (the current folder name) from the path array
+            getFoldersPath();
+            //se file unique path by checnking the folders path with the files path
+            setFileUniquePath(i);
+            //reset the variables after uploading all the files
+            uploadFolders(user);
+          }
+
+          //check if the path is not empty to prevent getting error
+          filesArray[i].uniqueName = fileId;
+          filesArray[i].path =
+            filesArray[i].path.length > 0 ? filesArray[i].path.join("/") : "";
+
+          //check if the path is not empty to prevent getting error
+          filesArray[i].uniquePath =
+            filesArray[i].uniquePath.length > 0
+              ? filesArray[i].uniquePath.join("/")
+              : "";
+
+          combineChunks(filesArray[i].chunks, filesArray[i].uniqueName, user)
+            .then(() => {
+              updateFolderSize(filesArray[i], user);
+              //delete the added file
+              storeData(filesArray[i], "file");
+              filesArray.splice(i, 1);
+              i--;
+              let firstUserFile = true;
+              //got trough received files array
+              for (
+                let numberOfReceivedFilesIndex = 0;
+                numberOfReceivedFilesIndex < filesArray.length;
+                numberOfReceivedFilesIndex++
+              ) {
+                //if the user from the received files array matches the user tha is curently uploading increase the received files for that user
+                if (
+                  numberOfReceivedFiles[numberOfReceivedFilesIndex] &&
+                  numberOfReceivedFiles[numberOfReceivedFilesIndex].user ===
+                    user.id
+                ) {
+                  numberOfReceivedFiles[numberOfReceivedFilesIndex]
+                    .receivedFiles++;
+                  firstUserFile = false;
+                }
+              }
+              //if the user is uploading his first file push a new object
+              if (firstUserFile) {
+                numberOfReceivedFiles.push({
+                  user: user.id,
+                  receivedFiles: 1,
+                  totalFiles: Number(req.headers.numberoffiles),
+                });
+              }
+              //go again trough the uploaded files array
+              for (
+                let numberOfReceivedFilesIndex = 0;
+                numberOfReceivedFilesIndex < filesArray.length;
+                numberOfReceivedFilesIndex++
+              ) {
+                //if the user has received all the files delete all the unecessarry data
+                if (
+                  numberOfReceivedFiles[numberOfReceivedFilesIndex] &&
+                  numberOfReceivedFiles[numberOfReceivedFilesIndex]
+                    .receivedFiles ===
+                    numberOfReceivedFiles[numberOfReceivedFilesIndex]
+                      .totalFiles &&
+                  numberOfReceivedFiles[numberOfReceivedFilesIndex].user ===
+                    user.id
+                ) {
+                  foldersArray = resetData(foldersArray, user);
+                  filesArray = resetData(filesArray, user);
+                  uploadedFoldersArray = resetData(uploadedFoldersArray, user);
+                  prevRelativePath = resetData(prevRelativePath, user);
+                  numberOfReceivedFiles = resetData(
+                    numberOfReceivedFiles,
+                    user
+                  );
+                }
+              }
+              res.send("File uploaded successfully");
+            })
+            .catch((error) => {
+              console.error("Error combining chunks:", error);
+            });
+        }
+        if (
+          filesArray[i] &&
+          Number(filesArray[i].totalChunks) !==
+            Number(filesArray[i].chunks.length)
+        ) {
+          res.send("Chunk received");
         }
       }
-      if (
-        filesArray[i].totalChunks === filesArray[i].chunks.length &&
-        //means that the file was not already uploaded
-        filesArray[i].status === 0 &&
-        !missingChunks
-      ) {
-        await getUser(req.cookies)
-          .then((user) => {
-            //set the file status to uploading
-            filesArray[i].status = 1;
-
-            let fileId;
-            const currentDate =
-              "_" +
-              new Date()
-                .toISOString()
-                .replace(/[-:.]/g, "")
-                .replace("T", "")
-                .slice(0, 14);
-            if (filesArray[i].name.match(/\.([^.]+)$/)) {
-              fileId =
-                uuidv4() +
-                currentDate +
-                "." +
-                filesArray[i].name.match(/\.([^.]+)$/)[1];
-            } else {
-              fileId = uuidv4() + currentDate;
-            }
-
-            if (filesArray[i].path.length > 0) {
-              //get the folders from files relative path
-              createFolders(i, user);
-              //remove the last element (the current folder name) from the path array
-              getFoldersPath();
-              //se file unique path by checnking the folders path with the files path
-              setFileUniquePath(i);
-              //reset the variables after uploading all the files
-              uploadFolders(user);
-            }
-
-            //check if the path is not empty to prevent getting error
-            filesArray[i].uniqueName = fileId;
-            filesArray[i].path =
-              filesArray[i].path.length > 0 ? filesArray[i].path.join("/") : "";
-
-            //check if the path is not empty to prevent getting error
-            filesArray[i].uniquePath =
-              filesArray[i].uniquePath.length > 0
-                ? filesArray[i].uniquePath.join("/")
-                : "";
-
-            combineChunks(filesArray[i].chunks, filesArray[i].uniqueName, user)
-              .then(() => {
-                updateFolderSize(filesArray[i], user);
-                //delete the added file
-                storeData(filesArray[i], "file");
-                filesArray.splice(i, 1);
-                i--;
-                let firstUserFile = true;
-                //got trough received files array
-                for (
-                  let numberOfReceivedFilesIndex = 0;
-                  numberOfReceivedFilesIndex < filesArray.length;
-                  numberOfReceivedFilesIndex++
-                ) {
-                  //if the user from the received files array matches the user tha is curently uploading increase the received files for that user
-                  if (
-                    numberOfReceivedFiles[numberOfReceivedFilesIndex] &&
-                    numberOfReceivedFiles[numberOfReceivedFilesIndex].user ===
-                      user.id
-                  ) {
-                    numberOfReceivedFiles[numberOfReceivedFilesIndex]
-                      .receivedFiles++;
-                    firstUserFile = false;
-                  }
-                }
-                //if the user is uploading his first file push a new object
-                if (firstUserFile) {
-                  numberOfReceivedFiles.push({
-                    user: user.id,
-                    receivedFiles: 1,
-                    totalFiles: Number(req.headers.numberoffiles),
-                  });
-                }
-                //go again trough the uploaded files array
-                for (
-                  let numberOfReceivedFilesIndex = 0;
-                  numberOfReceivedFilesIndex < filesArray.length;
-                  numberOfReceivedFilesIndex++
-                ) {
-                  //if the user has received all the files delete all the unecessarry data
-                  if (
-                    numberOfReceivedFiles[numberOfReceivedFilesIndex] &&
-                    numberOfReceivedFiles[numberOfReceivedFilesIndex]
-                      .receivedFiles ===
-                      numberOfReceivedFiles[numberOfReceivedFilesIndex]
-                        .totalFiles &&
-                    numberOfReceivedFiles[numberOfReceivedFilesIndex].user ===
-                      user.id
-                  ) {
-                    foldersArray = resetData(foldersArray, user);
-                    filesArray = resetData(filesArray, user);
-                    uploadedFoldersArray = resetData(
-                      uploadedFoldersArray,
-                      user
-                    );
-                    prevRelativePath = resetData(prevRelativePath, user);
-                    numberOfReceivedFiles = resetData(
-                      numberOfReceivedFiles,
-                      user
-                    );
-                  }
-                }
-                res.send("File uploaded successfully");
-              })
-              .catch((error) => {
-                console.error("Error combining chunks:", error);
-              });
-          })
-          .catch(() => {
-            res.json({ error: "Unauthorized user" });
-          });
-      }
-      if (
-        filesArray[i] &&
-        Number(filesArray[i].totalChunks) !==
-          Number(filesArray[i].chunks.length)
-      ) {
-        res.send("Chunk received");
-      }
-    }
-  })().catch((err) => {
-    res.json({ message: "An error occured" });
-    console.log(err);
-  });
+    })
+    .catch(() => {
+      res.json({ error: "Unauthorized user" });
+    });
 });
 
 /*---------------------------------------------------------*\
@@ -1032,21 +1025,25 @@ app.post("/api/download", (req, res) => {
 });
 
 app.post("/api/delete-downloaded-folder", (req, res) => {
-  getUser(req.cookies).then((user) => {
-    const { folderName } = req.body;
-    fs.rm(
-      `uploads/${user.id}/tmp_folder/${folderName}.zip`,
-      { recursive: true },
-      (err) => {
-        if (err) {
-          console.error(
-            `Error deleting folder: ${err.message}. User: ${user.id}`
-          );
+  getUser(req.cookies)
+    .then((user) => {
+      const { folderName } = req.body;
+      fs.rm(
+        `uploads/${user.id}/tmp_folder/${folderName}.zip`,
+        { recursive: true },
+        (err) => {
+          if (err) {
+            console.error(
+              `Error deleting folder: ${err.message}. User: ${user.id}`
+            );
+          }
+          res.json({});
         }
-        res.json({});
-      }
-    );
-  });
+      );
+    })
+    .catch(() => {
+      res.json({ message: "Unauthorized user!" });
+    });
 });
 
 /*---------------------------------------------------------*\
@@ -1083,9 +1080,13 @@ async function validateTemporaryLink(link) {
 
 app.post("/api/get-data-name", (req, res) => {
   const { link } = req.body;
-  validateTemporaryLink(link).then((data) => {
-    res.json({ dataName: data.name });
-  });
+  validateTemporaryLink(link)
+    .then((data) => {
+      res.json({ dataName: data.name });
+    })
+    .catch(() => {
+      res.json({ dataName: "not_found" });
+    });
 });
 
 app.post("/api/tmp-link-download", (req, res) => {
@@ -1184,38 +1185,46 @@ app.post("/api/get-download-link", (req, res) => {
 });
 
 app.post("/api/generate-download-link", (req, res) => {
-  getUser(req.cookies).then((user) => {
-    const { data } = req.body;
-    const link = uuidv4();
-    database.query(
-      "INSERT INTO temporary_links (link, creation_date, data_id) VALUES (?,?,?)",
-      [link, new Date(), data.data_id],
-      (err) => {
-        if (err) {
-          console.log(err);
-          res.json({ message: "Error generating the link" });
-        } else {
-          res.json({ link: link });
+  getUser(req.cookies)
+    .then((user) => {
+      const { data } = req.body;
+      const link = uuidv4();
+      database.query(
+        "INSERT INTO temporary_links (link, creation_date, data_id) VALUES (?,?,?)",
+        [link, new Date(), data.data_id],
+        (err) => {
+          if (err) {
+            console.log(err);
+            res.json({ message: "Error generating the link" });
+          } else {
+            res.json({ link: link });
+          }
         }
-      }
-    );
-  });
+      );
+    })
+    .catch(() => {
+      res.json({ message: "Unauthorized user!" });
+    });
 });
 
 app.post("/api/delete-download-link", (req, res) => {
-  getUser(req.cookies).then((user) => {
-    const { data } = req.body;
-    database.query(
-      "DELETE FROM temporary_links WHERE data_id = ?",
-      [data.data_id, user.id],
-      (err) => {
-        if (err) {
-          console.log(err);
+  getUser(req.cookies)
+    .then((user) => {
+      const { data } = req.body;
+      database.query(
+        "DELETE FROM temporary_links WHERE data_id = ?",
+        [data.data_id, user.id],
+        (err) => {
+          if (err) {
+            console.log(err);
+          }
+          res.json();
         }
-        res.json();
-      }
-    );
-  });
+      );
+    })
+    .catch(() => {
+      res.json({ message: "Unauthorized user!" });
+    });
 });
 
 /*---------------------------------------------------------*\
@@ -1314,7 +1323,7 @@ app.post("/api/fetch-data", (req, res) => {
           } else {
             dataArray = filterData(dataArray);
           }
-          checkDiskSpace("D:/").then((diskSpace) => {
+          checkDiskSpace("/").then((diskSpace) => {
             const totalMemory = diskSpace.free + usedMemory;
             res.json({
               dataArray: dataArray,

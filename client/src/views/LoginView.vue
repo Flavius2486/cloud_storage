@@ -98,7 +98,7 @@ export default {
           )
           .then((response) => {
             if (response.data.auth) {
-              this.$router.replace("/dashboard");
+              window.location.reload();
             } else {
               document
                 .querySelector(".form-error")
