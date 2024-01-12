@@ -23,6 +23,7 @@
 import sidebar from "@/components/sidebar/sidebar.vue";
 import navbar from "@/components/navbar.vue";
 import refreshToken from "@/utils/refreshToken.js";
+import axios from "axios";
 
 export default {
   name: "App",
@@ -65,12 +66,19 @@ export default {
     },
   },
   mounted() {
-    refreshToken();
     if (this.$store.state.isAuthenticated) {
-      window.setInterval(() => {
-        refreshToken();
-      }, 1800000);
+      refreshToken();
     }
+    axios
+      .post(
+        `${import.meta.env.VITE_API_URL}/reset-data`,
+        {},
+        { withCredentials: true }
+      )
+      .then(() => {})
+      .catch((err) => {
+        console.log(err);
+      });
   },
   created: function () {
     window.addEventListener("click", () => {

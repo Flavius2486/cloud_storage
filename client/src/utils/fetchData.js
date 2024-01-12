@@ -21,6 +21,7 @@ const fetchData = async (dataCategory) => {
 
     return response.data.dataArray;
   } catch (error) {
+    store.commit("setDataStatus", { state: true });
     console.error("Error fetching data:", error);
     throw error;
   }

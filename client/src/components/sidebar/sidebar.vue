@@ -83,10 +83,10 @@ export default {
   },
   methods: {
     setActivePage(index) {
-      this.sidebarBtns.forEach((button) => {
-        button.active = false;
-      });
-      this.sidebarBtns[index].active = true;
+      // this.sidebarBtns.forEach((button) => {
+      //   button.active = false;
+      // });
+      // this.sidebarBtns[index].active = true;
       this.$router.replace({ name: this.sidebarBtns[index].page });
     },
     progressBar() {

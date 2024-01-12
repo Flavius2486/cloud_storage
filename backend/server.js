@@ -469,16 +469,14 @@ let filesArray = [];
 let foldersArray = [];
 
 function checkFolderDuplication(i, j) {
-  let createNewFolder = true;
-  foldersArray.forEach((folder) => {
+  for (let p = 0; p < foldersArray.length; p++) {
     let tempPath = JSON.parse(JSON.stringify(filesArray[i].path));
     tempPath.splice(j + 1, tempPath.length - j);
-    if (folder.user !== filesArray[i].user) createNewFolder = false;
-    if (folder.path.join("/") === tempPath.join("/")) {
-      createNewFolder = false;
+    if (foldersArray[p].path.join("/") === tempPath.join("/")) {
+      return false;
     }
-  });
-  return createNewFolder;
+  }
+  return true;
 }
 
 function createFolders(i, user) {
@@ -525,14 +523,26 @@ function getFoldersPath() {
       //check if the indexes are not the to prevent checking the same folder with itself
       //check if the nestedPosition on position folderIndex1 is is lower than the path array from position folderIndex2 to prevent getting undefined
       //check if the name of the folder from position folderIndex1 is matching the name from the array path from position folderIndex2 with the element from position folderIndex1 in the first "for"
+      let folder1Path = JSON.parse(
+        JSON.stringify(foldersArray[folderIndex1].path)
+      );
+      let folder2Path = JSON.parse(
+        JSON.stringify(foldersArray[folderIndex2].path)
+      );
+      // folder1Path.pop();
+      folder2Path.splice(
+        foldersArray[folderIndex1].nestedPosition + 1,
+        folder2Path.length - foldersArray[folderIndex1].nestedPosition
+      );
       if (
         folderIndex1 !== folderIndex2 &&
         foldersArray[folderIndex2].path.length >=
           foldersArray[folderIndex1].nestedPosition &&
-        foldersArray[folderIndex1].name ===
-          foldersArray[folderIndex2].path[
-            foldersArray[folderIndex1].nestedPosition
-          ]
+        folder1Path.join("/") === folder2Path.join("/")
+        // foldersArray[folderIndex1].name ===
+        //   foldersArray[folderIndex2].path[
+        //     foldersArray[folderIndex1].nestedPosition
+        //   ]
       ) {
         //add the folder unique name in to the folder to know it s location
         foldersArray[folderIndex2].uniquePath[
@@ -1386,10 +1396,12 @@ function getDataFromFolder(data, folderIdentifier, page) {
       if (item.deletion_date !== null && page === "deleted") {
         result.push(item);
       } else if (
-        (item.starred && page === "starred") ||
-        (page === "recents" &&
-          currentTime.getTime() - fileLastAccessed.getTime() < oneWeekMills) ||
-        page === "dashboard"
+        item.deletion_date === null &&
+        ((item.starred && page === "starred") ||
+          (page === "recents" &&
+            currentTime.getTime() - fileLastAccessed.getTime() <
+              oneWeekMills) ||
+          page === "dashboard")
       ) {
         result.push(item);
       }
@@ -1920,24 +1932,36 @@ app.post("/api/recover", (req, res) => {
           });
           recoverData(user, data)
             .then(() => {
-              database.query(
-                "UPDATE data SET frontend_path = ?, unique_path = ? WHERE unique_identifier = ? AND user_id = ?",
-                ["", "", data.unique_identifier, user.id],
-                (err) => {
-                  if (err) {
-                    console.log(err);
-                    return res.json({
-                      message: `Error recovering the ${data.type}!`,
-                    });
-                  } else {
-                    res.json({
-                      message: `${capitalizeFirstLetter(
-                        data.type
-                      )} recoverd succesfully!`,
-                    });
+              data.unique_path.split("/").forEach((folderIdentifier) => {
+                database.query(
+                  "SELECT deletion_date FROM data WHERE user_id = ? AND unique_identifier = ?",
+                  [user.id, folderIdentifier],
+                  (err, folder) => {
+                    for (let i = 0; i < folder.length; i++) {
+                      if (folder[i].deletion_date) {
+                        database.query(
+                          "UPDATE data SET frontend_path = ?, unique_path = ? WHERE unique_identifier = ? AND user_id = ?",
+                          ["", "", data.unique_identifier, user.id],
+                          (err) => {
+                            if (err) {
+                              console.log(err);
+                              return res.json({
+                                message: `Error recovering the ${data.type}!`,
+                              });
+                            }
+                          }
+                        );
+                        break;
+                      }
+                    }
                   }
-                }
-              );
+                );
+              });
+              res.json({
+                message: `${capitalizeFirstLetter(
+                  data.type
+                )} recoverd succesfully!`,
+              });
             })
             .catch(() => {
               console.log(err);
@@ -2064,6 +2088,19 @@ app.post("/api/search", (req, res) => {
           }
         }
       );
+    })
+    .catch(() => {
+      res.json({ message: "Unauthorized user!" });
+    });
+});
+
+app.post("/api/reset-data", (req, res) => {
+  getUser(req.cookies)
+    .then((user) => {
+      foldersArray = resetData(foldersArray, user);
+      filesArray = resetData(filesArray, user);
+      numberOfReceivedFiles = resetData(numberOfReceivedFiles, user);
+      res.json({ message: "Data cleared succesfully!" });
     })
     .catch(() => {
       res.json({ message: "Unauthorized user!" });
